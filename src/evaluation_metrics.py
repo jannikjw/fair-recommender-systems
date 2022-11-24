@@ -1,14 +1,12 @@
 import math
 
-
-"""
-Assumptions:
--   Item object has an attribute num_users, which is a count of the number of users that have 
-    consumed this piece of content
-"""
-
-def similarity(x, y):
-    if x == y:
+def topic_similarity(x, y):
+    """
+    Assumptions:
+    -   Item object has an attribute num_users, which is a count of the number of users that have 
+        consumed this piece of content
+    """
+    if topic[x] == topic[y]:
         return 1
     else:
         return 0
@@ -18,7 +16,7 @@ def slate_diversity(slate):
     for i in range(len(slate)):
         for j in range(len(slate)):
             if i != j:
-                sum_similarity += similarity(slate[i], slate[j])
+                sum_similarity += topic_similarity(slate[i], slate[j])
     
     return 1 - 1 / (len(slate)**2 - len(slate)) * sum_similarity
 
