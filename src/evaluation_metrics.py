@@ -1,70 +1,71 @@
+from trecs.metrics import Measurement
+
 import math
 import numpy as np
 
-def topic_similarity(topics, x, y):
-    """
-    Assumptions:
-    -   Item object has an attribute num_users, which is a count of the number of users that have 
-        consumed this piece of content
-    """
-    if topics[x] == topics[y]:
-        return 1
-    else:
-        return 0
+class NoveltyMetric(Measurement):
+    def __init__(self, name="novlety_metric", verbose=False):
+        Measurement.__init__(self, name, verbose)
+        
+    def measure(self, recommender):
+        """
+        The purpose of this metric is to capture the global popularity-based measurements
+        - computing the average novelty of all slates that are presented to users at the current timestep
 
-def calculate_diversity(topics, slate): #TODO: Vectorize this
-    sum_similarity = 0
-    for i in range(len(slate)):
-        for j in range(len(slate)):
-            if i != j:
-                sum_similarity += topic_similarity(topics, slate[i], slate[j])
-    
-    return 1 - 1 / (len(slate)**2 - len(slate)) * sum_similarity
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from
+                :class:`~models.recommender.BaseRecommender`.
+        """
+        interactions = recommender.interactions
+        if interactions.size == 0:
+            self.observe(None) # no interactions yet
+            return
+        # Indices for the items shown
+        items_shown = recommender.items_shown.flatten()
+        # total number of users that have seen each of the items shown for all previous iterations
+        num_users_for_items_shown = recommender.item_count[items_shown]
+        # calculate novelty between each user and their presented item slate
+        novelty = sum((-1) * math.log((num_users_for_items_shown*1.0) / self.num_users))
+        # to complete the measurement, call `self.observe(metric_value)`
+        self.observe(novelty.mean())
+        
 
-
-def self_information(item_users, item, num_users):
-    """
-    Item-level self-information - measures the unexpectedness of a recommended item relative to its global popularity
-    *  Assume *  Item object has an attribute num_users, which is a count of the number of users that have consumed this piece of content
-            Note that num_users is an attribute defined in the ActualUserProfiles class
-    """
-    return (-1) * math.log((item_users*1.0) / num_users)    
-
-
-def calculate_novelty(slate, num_users, interaction_matrix):
-    """
-    Metric to capture the global popularity-based measurements. Computing the novelty of a slate that is presented to a user.
-    """
-    return sum([self_information(sum(interaction_matrix[item]), item, num_users) for item in slate])
-
-
-def item_serendipity(item, user):
-    """
-    Item-level serendipity
-    TO DO:  Define some metric that evaluates item-wise serendipity. This could incorporate our previous implementations for 
-            self_information and similarity/dissimilarity (the latter of which could be w.r.t. user.state_history)
-    """
-    return 0
-
-
-def calculate_serendipity(slate, user):
-    """
-    Metric to capture the unexpectedness/surprise of the recommendation to a specific user
-    """
-    return sum([item_serendipity(item, user) for item in slate])
-
-
-def leaning_distance(item1, item2):
-    """
-    Function to compute the distance in leaning between two items
-    """
-    dist = math.abs(item1.leaning - item2.leaning)
-    return dist**2
-
-
-def calculate_spread(slate):
-    """
-    Metric to capture the spread of *leanings* in a given slate of items
-    """
-    sorted = np.sort(slate)
-    return sum([leaning_distance(slate[i-1], slate[i]) for i in slate[1:]])
+class SerendipityMetric(Measurement):
+    def __init__(self, name="novlety_metric", verbose=False):
+        Measurement.__init__(self, name, verbose)
+        
+    def measure(self, recommender):
+        """
+        Metric to capture the unexpectedness/surprise of the recommendation to a specific user.
+        Item-wise serendipity is equal to 1 if, for that specific user, that item is associated 
+        with a score greater than 0 and the topic cluster of that item is not present in the 
+        topic history for that user. Otherwise, item-wise serendipity is equal to 0.
+        Global serendipity for an interation is computed as the summation of all item-wise serendipity
+        scores divided by the number of users.
+        
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from
+                :class:`~models.recommender.BaseRecommender`.
+        """
+        interactions = recommender.interactions
+        if interactions.size == 0:
+            self.observe(None) # no interactions yet
+            return
+        # Indices for the items shown
+        items_shown = recommender.items_shown
+        # Scores for the items shown
+        user_scores = recommender.users.actual_user_scores.value
+        # Scores for just the shown items that have a score greater than 0
+        user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
+        # Topics that correspond to each item shown
+        topics_shown = np.take_along_axis(np.broadcast_to(recommender.topics, (self.num_users, self.num_items)), items_shown, axis=1)
+        # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
+        new_topics = np.apply_along_axis(np.isin, 1, topics_shown, self.user_topic_history, invert=True)
+        # calculate serendipity for all items presented to each user
+        serendipity = np.sum(np.multiply(new_topics, user_scores_items_shown)) / self.num_users
+        # to complete the measurement, call `self.observe(metric_value)`
+        self.observe(serendipity)
