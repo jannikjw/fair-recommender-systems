@@ -1,6 +1,6 @@
-# import sys
-# # caution: path[0] is reserved for script path (or '' in REPL)
-# sys.path.insert(1, '../t-recs/')
+import sys
+# caution: path[0] is reserved for script path (or '' in REPL)
+sys.path.insert(1, '../t-recs/')
 from trecs.metrics import Measurement
 
 import math
@@ -37,7 +37,7 @@ class NoveltyMetric(Measurement):
         # total number of users that have seen each of the items shown for all previous iterations
         num_users_for_items_shown = recommender.item_count[items_shown]
         # calculate novelty between each user and their presented item slate
-        novelty = sum((-1) * math.log((num_users_for_items_shown*1.0) / self.num_users))
+        novelty = sum((-1) * math.log((num_users_for_items_shown*1.0) / recommender.num_users))
         # to complete the measurement, call `self.observe(metric_value)`
         self.observe(novelty.mean())
         
@@ -78,11 +78,11 @@ class SerendipityMetric(Measurement):
         # Scores for just the shown items that have a score greater than 0
         user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
         # Topics that correspond to each item shown
-        topics_shown = np.take_along_axis(np.broadcast_to(recommender.topics, (self.num_users, self.num_items)), items_shown, axis=1)
+        topics_shown = np.take_along_axis(np.broadcast_to(recommender.topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
         # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
-        new_topics = np.apply_along_axis(np.isin, 1, topics_shown, self.user_topic_history, invert=True)
+        new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
         # calculate serendipity for all items presented to each user
-        serendipity = np.sum(np.multiply(new_topics, user_scores_items_shown)) / self.num_users
+        serendipity = np.sum(np.multiply(new_topics, user_scores_items_shown)) / recommender.num_users
         # to complete the measurement, call `self.observe(metric_value)`
         self.observe(serendipity)
         
