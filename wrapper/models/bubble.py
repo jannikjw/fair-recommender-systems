@@ -95,5 +95,16 @@ class BubbleBurster(ContentFiltering):
         else:
             self.item_count = item_count
         
-    # def _update_internal_state(self, interactions):
-    #     # ...
+    def _update_internal_state(self, interactions):
+        ContentFiltering._update_internal_state(self, interactions)
+        items_shown = self.items_shown
+        for i in range(items_shown.shape[0]):
+            items_shown_val, items_shown_count = np.unique(items_shown[i,:], return_counts=True)
+            self.item_count[0, items_shown_val] += 1
+            topics_shown = self.item_topics[items_shown_val]
+            topics_shown_val, topics_shown_count = np.unique(topics_shown, return_counts=True)
+            self.user_topic_history[i, topics_shown_val] += topics_shown_count
+            if (sum(items_shown_count) != 10):
+                print("DUPLICATE ITEMS IN SLATE", items_shown_count)
+                break
+        # return item_count, user_topic_history
