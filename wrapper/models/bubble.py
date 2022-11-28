@@ -61,8 +61,9 @@ class BubbleBurster(ContentFiltering):
         item_count=None,
         **kwargs
     ):
-        super().__init__(**kwargs)
         
+        super().__init__(**kwargs)
+
         # Initializing 'item_topics' attribute
         if (not isinstance(item_topics, (list, np.ndarray, sp.spmatrix))):
             raise TypeError("Must supply array_like object for 'item_topics'")
@@ -97,7 +98,7 @@ class BubbleBurster(ContentFiltering):
         else:
             self.item_count = item_count
         
-    def calculate_cosine_similarities(self, slate):
+    def _calculate_cosine_similarities(self, slate):
         """
         Calculates cosine similarity for a set of recommendations.
         Inputs:
@@ -106,20 +107,20 @@ class BubbleBurster(ContentFiltering):
         Outputs:
             cosine_similarity: mean average precision
         """
-        cosine_similarities = []
+        cosine_similarities = [] #TODO: Vecotrize (select item representation vectors from item represetnations and then multiply transposes)
         for item_id in slate:
             cosine_similarity = 0
             for item_id_2 in slate:
                 if item_id != item_id_2:
-                    vec_1 = self.item_representation[:, item_id]
-                    vec_2 = self.item_representation[:, item_id_2]
+                    vec_1 = self.items_hat[:, item_id]
+                    vec_2 = self.items_hat[:, item_id_2]
                     vec_prod = np.dot(vec_1, vec_2) / (norm(vec_1) * norm(vec_2))
                     cosine_similarity += vec_prod
             cosine_similarities.append(cosine_similarity)
         return cosine_similarities
 
 
-    def re_rank_scores(self, recommendations):
+    def _re_rank_scores(self, recommendations):
         """
         Re-ranks scores for a set of recommendations.
         Inputs:
@@ -129,14 +130,15 @@ class BubbleBurster(ContentFiltering):
             re_ranked_recommendations: a list of re-ranked recommendations
         """
         exps = [np.round(x * 0.1, 1) for x in range(0, len(recommendations[0]))][::-1]
+        eps = 0.00001
         initial_scores = np.exp(exps)
         re_ranked_recommendations = np.zeros_like(recommendations)
         
         for i, slate in enumerate(recommendations):
             # print(f"Slate:\t\t\t{slate}")
-            cosine_similarities = self.calculate_cosine_similarities(slate, item_representation=self.item_representation)
+            cosine_similarities = self._calculate_cosine_similarities(slate)
             # multiply cosine_similarities with each list in recommendations
-            re_ranked_scores = initial_scores * 1/cosine_similarities
+            re_ranked_scores = initial_scores * 1/(eps + np.power(cosine_similarities,2))
             # print(f'Initial Scores:\t\t{np.round(initial_scores, 2)}')
             # print(f'Re-ranked scores:\t{np.round(re_ranked_scores, 2)}')
             tup = list(zip(slate, re_ranked_scores))
@@ -147,69 +149,3 @@ class BubbleBurster(ContentFiltering):
             re_ranked_recommendations[i] = re_ranked_slate
 
         return re_ranked_recommendations
-
-
-    def generate_recommendations(self, k=1, item_indices=None):
-        """
-        Generate recommendations for each user.
-
-        Parameters
-        -----------
-
-            k : int, default 1
-                Number of items to recommend.
-
-            item_indices : :obj:`numpy.ndarray`, optional
-                A matrix containing the indices of the items each user has not yet
-                interacted with. It is used to ensure that the user is presented
-                with items they have not already interacted with. If `None`,
-                then the user may be recommended items that they have already
-                interacted with.
-
-        Returns
-        ---------
-            Recommendations: :obj:`numpy.ndarray`
-        """
-        print('hello')
-        if item_indices is not None:
-            if item_indices.size < self.num_users:
-                raise ValueError(
-                    "At least one user has interacted with all items!"
-                    "To avoid this problem, you may want to allow repeated items."
-                )
-            if k > item_indices.shape[1]:
-                raise ValueError(
-                    f"There are not enough items left to recommend {k} items to each user."
-                )
-        if k == 0:
-            return np.array([]).reshape((self.num_users, 0)).astype(int)
-
-        s_filtered = mo.to_dense(self.predicted_scores.filter_by_index(item_indices))
-        row = np.repeat(self.users.user_vector, item_indices.shape[1])
-        row = row.reshape((self.num_users, -1))
-        if self.probabilistic_recommendations:
-            permutation = s_filtered.argsort()
-            rec = item_indices[row, permutation]
-            # the recommended items will not be exactly determined by
-            # predicted score; instead, we will sample from the sorted list
-            # such that higher-preference items get more probability mass
-            num_items_unseen = rec.shape[1]  # number of items unseen per user
-            probabilities = np.logspace(0.0, num_items_unseen / 10.0, num=num_items_unseen, base=2)
-            probabilities = probabilities / probabilities.sum()
-            picks = np.random.choice(num_items_unseen, k, replace=False, p=probabilities)
-            return rec[:, picks]
-        else:
-            # returns top k indices, sorted from greatest to smallest
-            sort_top_k = mo.top_k_indices(s_filtered, k, self.random_state)
-            # convert top k indices into actual item IDs
-            rec = item_indices[row[:, :k], sort_top_k]
-
-            # Re-rank scores according to specific function
-            rec = self.re_rank_scores(rec) 
-
-            if self.is_verbose():
-                self.log(f"Item indices:\n{str(item_indices)}")
-                self.log(
-                    f"Top-k items ordered by preference (high to low) for each user:\n{str(rec)}"
-                )
-            return rec

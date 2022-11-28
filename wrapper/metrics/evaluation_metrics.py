@@ -78,7 +78,7 @@ class SerendipityMetric(Measurement):
         # Scores for just the shown items that have a score greater than 0
         user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
         # Topics that correspond to each item shown
-        topics_shown = np.take_along_axis(np.broadcast_to(recommender.topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
+        topics_shown = np.take_along_axis(np.broadcast_to(recommender.item_topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
         # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
         new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
         # calculate serendipity for all items presented to each user
@@ -103,7 +103,7 @@ class DiversityMetric(Measurement):
         RecSys ’21, page 85–95, New York, NY, USA, 2021. Association for Computing Machinery.
         
         Parameters
-        ------------
+        ------------ 
             recommender: :class:`~models.recommender.BaseRecommender`
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
@@ -116,7 +116,7 @@ class DiversityMetric(Measurement):
         slate_diversity = np.zeros(recommender.num_users)
         for i in combos:
             item_pair = items_shown[:, i]
-            topic_pair = recommender.topics[item_pair]
+            topic_pair = recommender.item_topics[item_pair]
             topic_similarity = (topic_pair[:,0] != topic_pair[:,1])
             slate_diversity += topic_similarity
         

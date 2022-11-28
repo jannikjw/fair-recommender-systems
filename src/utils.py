@@ -1,4 +1,7 @@
 from sklearn.cluster import KMeans
+from sklearn.decomposition import NMF
+import numpy as np
+random_state = np.random.seed(42)
 
 def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, max_iter:int=100, nmf_solver:str="mu"):
     """
