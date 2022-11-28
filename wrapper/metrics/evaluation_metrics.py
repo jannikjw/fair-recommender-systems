@@ -1,7 +1,7 @@
 import sys
 # caution: path[0] is reserved for script path (or '' in REPL)
 sys.path.insert(1, '../t-recs/')
-from trecs.metrics import Measurement
+from trecs.metrics.measurement import Measurement
 
 import math
 import numpy as np
