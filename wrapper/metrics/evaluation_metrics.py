@@ -3,7 +3,7 @@ import sys
 sys.path.insert(1, '../t-recs/')
 from trecs.metrics import Measurement
 
-import math
+# import math
 import numpy as np
 from itertools import combinations
 
@@ -33,18 +33,26 @@ class NoveltyMetric(Measurement):
             self.observe(None) # no interactions yet
             return
         # Indices for the items shown
-        items_shown = recommender.items_shown.flatten()
+        # items_shown = recommender.items_shown.flatten()
         """
         Need to implement it such that it subtracts the number of users who consumed
         the item in the current timestep (if we are following that part of Chen et. al.'s
         implementation).
         """
+        """
+        OLD
         # total number of users that have seen each of the items shown for all previous iterations
-        num_users_for_items_shown = recommender.item_count[items_shown]
+        num_users_for_items_shown = recommender.item_count[np.unique(recommender.items_shown)]
         # calculate novelty between each user and their presented item slate
-        novelty = sum((-1) * math.log((num_users_for_items_shown*1.0) / recommender.num_users))
+        novelty = sum((-1) * np.log((num_users_for_items_shown*1.0) / recommender.num_users))
         # to complete the measurement, call `self.observe(metric_value)`
-        self.observe(novelty.mean())
+        """
+        slate_items_self_info = recommender.item_count[recommender.items_shown]
+        slate_items_self_info = (-1) * np.log(np.divide(slate_items_self_info, recommender.num_users))
+        slate_items_pred_score = np.take_along_axis(recommender.predicted_scores.value, recommender.items_shown, axis=1)
+        slate_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
+        slate_novelty = np.sum(slate_novelty, axis=1)
+        self.observe(np.mean(slate_novelty))
         
 
 class SerendipityMetric(Measurement):
