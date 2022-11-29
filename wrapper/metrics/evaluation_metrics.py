@@ -8,7 +8,7 @@ import numpy as np
 from itertools import combinations
 
 class NoveltyMetric(Measurement):
-    def __init__(self, name="novlety_metric", verbose=False):
+    def __init__(self, name="novelty_metric", verbose=False):
         Measurement.__init__(self, name, verbose)
         
     def measure(self, recommender):
@@ -49,14 +49,14 @@ class NoveltyMetric(Measurement):
         """
         slate_items_self_info = recommender.item_count[recommender.items_shown]
         slate_items_self_info = (-1) * np.log(np.divide(slate_items_self_info, recommender.num_users))
-        slate_items_pred_score = np.take_along_axis(recommender.predicted_scores.value, recommender.items_shown, axis=1)
+        slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)
         slate_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
         slate_novelty = np.sum(slate_novelty, axis=1)
         self.observe(np.mean(slate_novelty))
         
 
 class SerendipityMetric(Measurement):
-    def __init__(self, name="novlety_metric", verbose=False):
+    def __init__(self, name="serendipity_metric", verbose=False):
         Measurement.__init__(self, name, verbose)
         
     def measure(self, recommender):
