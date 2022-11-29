@@ -84,6 +84,8 @@ class SerendipityMetric(Measurement):
         if interactions.size == 0:
             self.observe(None) # no interactions yet
             return
+        """
+        OLD
         # Indices for the items shown
         items_shown = recommender.items_shown
         # Scores for the items shown
@@ -92,15 +94,24 @@ class SerendipityMetric(Measurement):
         user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
         # Topics that correspond to each item shown
         topics_shown = np.take_along_axis(np.broadcast_to(recommender.item_topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
-        """
-        Need to update the below 2 lines depending on how user_topic_history is implemented in the wrapper class
-        """
+        # Need to update the below 2 lines depending on how user_topic_history is implemented in the wrapper class
         # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
         new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
         # calculate serendipity for all items presented to each user
         serendipity = np.sum(np.multiply(new_topics, user_scores_items_shown)) / recommender.num_users
         # to complete the measurement, call `self.observe(metric_value)`
         self.observe(serendipity)
+        """
+        # Scores for just the shown items that have a score greater than 0
+        user_scores_items_shown = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1) > 0
+        # Topics that correspond to each item shown
+        topics_shown = recommender.item_topics[recommender.items_shown]
+        # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
+        new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
+        # calculate serendipity for all items presented to each user
+        items_shown_serendipity = np.multiply(new_topics, user_scores_items_shown)
+        # Calculate average serendipity - average serendipity by slate AND users
+        self.observe(np.mean(items_shown_serendipity))
         
 class DiversityMetric(Measurement):
     def __init__(self, name="diversity_metric", verbose=False):
