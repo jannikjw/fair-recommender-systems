@@ -1,7 +1,7 @@
 import sys
 # caution: path[0] is reserved for script path (or '' in REPL)
 sys.path.insert(1, '../t-recs/')
-from trecs.metrics import Measurement
+from trecs.metrics.measurement import Measurement
 
 # import math
 import numpy as np
@@ -92,6 +92,7 @@ class SerendipityMetric(Measurement):
         user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
         # Topics that correspond to each item shown
         topics_shown = np.take_along_axis(np.broadcast_to(recommender.item_topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
+
         # Need to update the below 2 lines depending on how user_topic_history is implemented in the wrapper class
         # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
         new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
@@ -128,7 +129,7 @@ class DiversityMetric(Measurement):
         RecSys ’21, page 85–95, New York, NY, USA, 2021. Association for Computing Machinery.
         
         Parameters
-        ------------
+        ------------ 
             recommender: :class:`~models.recommender.BaseRecommender`
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
@@ -148,3 +149,80 @@ class DiversityMetric(Measurement):
 
         slate_diversity = 1 - ((1 / (recommender.num_items_per_iter * (recommender.num_items_per_iter-1))) * topic_similarity)
         self.observe(np.mean(slate_diversity))
+
+class TopicInteractionMeasurement(Measurement):
+    """
+    Keeps track of the interactions between users and topics.
+
+    Specifically, at each timestep, it stores a histogram of length
+    :math:`|I|`, where element :math:`i` is the number of interactions
+    received by topic :math:`i`.
+
+    Parameters
+    -----------
+
+        verbose: bool, default False
+            If ``True``, enables verbose mode. Disabled by default.
+
+    Attributes
+    -----------
+        Inherited by Measurement: :class:`.Measurement`
+
+        name: str, default ``"topic_interaction_histogram"``
+            Name of the measurement component.
+    """
+
+    def __init__(self, name="topic_interaction_histogram", verbose=False):
+        Measurement.__init__(self, name, verbose)
+
+
+    @staticmethod
+    def _generate_interaction_histogram(interactions, num_users, num_topics):
+        """
+        Generates a histogram of the number of interactions per topics at the
+        given timestep.
+
+        Parameters
+        -----------
+            interactions : :obj:`numpy.ndarray`
+                Array of user interactions.
+
+            num_users : int
+                Number of users in the system
+
+            num_topics : int
+                Number of topics in the system
+
+        Returns
+        ---------
+            :obj:`numpy.ndarray`:
+                Histogram of the number of interactions aggregated by items at the given timestep.
+        """
+        histogram = np.zeros(num_topics)
+        print(interactions)
+        np.add.at(histogram, interactions, 1)
+        # Check that there's one interaction per user
+        if histogram.sum() != num_users:
+            raise ValueError("The sum of interactions must be equal to the number of users")
+        return histogram
+
+
+    def measure(self, recommender):
+        """
+        Measures and stores a histogram of the number of interactions per
+        item at the given timestep.
+
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from :class:`~models.recommender.BaseRecommender`.
+        """
+        if recommender.interactions.size == 0:
+            # at beginning of simulation, there are no interactions
+            self.observe(None)
+            return
+
+        histogram = self._generate_interaction_histogram(
+            recommender.user_topic_history, recommender.num_users, recommender.num_topics
+        )
+        self.observe(histogram, copy=True)
