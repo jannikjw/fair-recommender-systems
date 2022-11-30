@@ -28,8 +28,7 @@ class NoveltyMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        interactions = recommender.interactions
-        if interactions.size == 0:
+        if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
         # Indices for the items shown
@@ -80,8 +79,7 @@ class SerendipityMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        interactions = recommender.interactions
-        if interactions.size == 0:
+        if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
         """
@@ -135,18 +133,18 @@ class DiversityMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-
+        interactions = recommender.interactions
+        if interactions.size == 0:
+            self.observe(None) # no interactions yet
+            return
+        # Getting all possible 2-item combinations (the indices) for the items in a slate
         combos = combinations(np.arange(recommender.num_items_per_iter), 2)
-        items_shown = recommender.items_shown
-
-        stop = 0
-        slate_diversity = np.zeros(recommender.num_users)
+        topic_similarity = np.zeros(recommender.num_users)
         for i in combos:
-            item_pair = items_shown[:, i]
+            # topic_similarity is equal to the number of 2-item combinations in which the items' topics are the same
+            item_pair = recommender.items_shown[:, i]
             topic_pair = recommender.item_topics[item_pair]
-            topic_similarity = (topic_pair[:,0] != topic_pair[:,1])
-            slate_diversity += topic_similarity
-        
-        diversity = 1 - (1 / (recommender.num_items_per_iter) * (recommender.num_items_per_iter-1))
-        diversity *= np.sum(slate_diversity)
-        self.observe(diversity)
+            topic_similarity += (topic_pair[:,0] == topic_pair[:,1])
+
+        slate_diversity = 1 - ((1 / (recommender.num_items_per_iter * (recommender.num_items_per_iter-1))) * topic_similarity)
+        self.observe(np.mean(slate_diversity))
