@@ -123,3 +123,80 @@ class DiversityMetric(Measurement):
         diversity = 1 - (1 / (recommender.num_items_per_iter) * (recommender.num_items_per_iter-1))
         diversity *= np.sum(slate_diversity)
         self.observe(diversity)
+
+class TopicInteractionMeasurement(Measurement):
+    """
+    Keeps track of the interactions between users and topics.
+
+    Specifically, at each timestep, it stores a histogram of length
+    :math:`|I|`, where element :math:`i` is the number of interactions
+    received by topic :math:`i`.
+
+    Parameters
+    -----------
+
+        verbose: bool, default False
+            If ``True``, enables verbose mode. Disabled by default.
+
+    Attributes
+    -----------
+        Inherited by Measurement: :class:`.Measurement`
+
+        name: str, default ``"topic_interaction_histogram"``
+            Name of the measurement component.
+    """
+
+    def __init__(self, name="topic_interaction_histogram", verbose=False):
+        Measurement.__init__(self, name, verbose)
+
+
+    @staticmethod
+    def _generate_interaction_histogram(interactions, num_users, num_topics):
+        """
+        Generates a histogram of the number of interactions per topics at the
+        given timestep.
+
+        Parameters
+        -----------
+            interactions : :obj:`numpy.ndarray`
+                Array of user interactions.
+
+            num_users : int
+                Number of users in the system
+
+            num_topics : int
+                Number of topics in the system
+
+        Returns
+        ---------
+            :obj:`numpy.ndarray`:
+                Histogram of the number of interactions aggregated by items at the given timestep.
+        """
+        histogram = np.zeros(num_topics)
+        print(interactions)
+        np.add.at(histogram, interactions, 1)
+        # Check that there's one interaction per user
+        if histogram.sum() != num_users:
+            raise ValueError("The sum of interactions must be equal to the number of users")
+        return histogram
+
+
+    def measure(self, recommender):
+        """
+        Measures and stores a histogram of the number of interactions per
+        item at the given timestep.
+
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from :class:`~models.recommender.BaseRecommender`.
+        """
+        if recommender.interactions.size == 0:
+            # at beginning of simulation, there are no interactions
+            self.observe(None)
+            return
+
+        histogram = self._generate_interaction_histogram(
+            recommender.user_topic_history, recommender.num_users, recommender.num_topics
+        )
+        self.observe(histogram, copy=True)

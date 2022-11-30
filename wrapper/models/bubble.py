@@ -84,7 +84,7 @@ class BubbleBurster(ContentFiltering):
 
         # Initializing 'user_topic_history' attribute
         if user_topic_history == None:
-            self.user_topic_history = np.zeros((self.num_users, self.num_topics))
+            self.user_topic_history = np.zeros((self.num_users, self.num_topics), dtype=int)
         elif user_topic_history.shape != (self.num_users, self.num_topics) or ~((user_topic_history!=0) & (user_topic_history!=1)).any():
             raise TypeError("'user_topic_history' must be a binary ndarray with shape=(num_users, num_topics)")
         else:
@@ -97,55 +97,3 @@ class BubbleBurster(ContentFiltering):
             raise TypeError("item_count must have shape=(1, recommender.num_items)")
         else:
             self.item_count = item_count
-        
-    def _calculate_cosine_similarities(self, slate):
-        """
-        Calculates cosine similarity for a set of recommendations.
-        Inputs:
-            slate: a list of recommendations
-            item_representation: a matrix of item representations
-        Outputs:
-            cosine_similarity: mean average precision
-        """
-        cosine_similarities = [] #TODO: Vecotrize (select item representation vectors from item represetnations and then multiply transposes)
-        for item_id in slate:
-            cosine_similarity = 0
-            for item_id_2 in slate:
-                if item_id != item_id_2:
-                    vec_1 = self.items_hat[:, item_id]
-                    vec_2 = self.items_hat[:, item_id_2]
-                    vec_prod = np.dot(vec_1, vec_2) / (norm(vec_1) * norm(vec_2))
-                    cosine_similarity += vec_prod
-            cosine_similarities.append(cosine_similarity)
-        return cosine_similarities
-
-
-    def _re_rank_scores(self, recommendations):
-        """
-        Re-ranks scores for a set of recommendations.
-        Inputs:
-            item_representation: a matrix of item representations
-            recommendations: a list of recommendations
-        Outputs:
-            re_ranked_recommendations: a list of re-ranked recommendations
-        """
-        exps = [np.round(x * 0.1, 1) for x in range(0, len(recommendations[0]))][::-1]
-        eps = 0.00001
-        initial_scores = np.exp(exps)
-        re_ranked_recommendations = np.zeros_like(recommendations)
-        
-        for i, slate in enumerate(recommendations):
-            # print(f"Slate:\t\t\t{slate}")
-            cosine_similarities = self._calculate_cosine_similarities(slate)
-            # multiply cosine_similarities with each list in recommendations
-            re_ranked_scores = initial_scores * 1/(eps + np.power(cosine_similarities,2))
-            # print(f'Initial Scores:\t\t{np.round(initial_scores, 2)}')
-            # print(f'Re-ranked scores:\t{np.round(re_ranked_scores, 2)}')
-            tup = list(zip(slate, re_ranked_scores))
-            tup.sort(key = lambda x: x[1], reverse=True)
-            # create list from second element in each tuple in tup
-            re_ranked_slate = np.array([x[0] for x in tup])
-            # print(f"Re-ranked Slate:\t{re_ranked_slate}")
-            re_ranked_recommendations[i] = re_ranked_slate
-
-        return re_ranked_recommendations
