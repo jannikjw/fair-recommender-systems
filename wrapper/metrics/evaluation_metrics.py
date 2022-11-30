@@ -3,12 +3,12 @@ import sys
 sys.path.insert(1, '../t-recs/')
 from trecs.metrics.measurement import Measurement
 
-import math
+# import math
 import numpy as np
 from itertools import combinations
 
 class NoveltyMetric(Measurement):
-    def __init__(self, name="novlety_metric", verbose=False):
+    def __init__(self, name="novelty_metric", verbose=False):
         Measurement.__init__(self, name, verbose)
         
     def measure(self, recommender):
@@ -28,22 +28,34 @@ class NoveltyMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        interactions = recommender.interactions
-        if interactions.size == 0:
+        if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
         # Indices for the items shown
-        items_shown = recommender.items_shown.flatten()
+        # items_shown = recommender.items_shown.flatten()
+        """
+        Need to implement it such that it subtracts the number of users who consumed
+        the item in the current timestep (if we are following that part of Chen et. al.'s
+        implementation).
+        """
+        """
+        OLD
         # total number of users that have seen each of the items shown for all previous iterations
-        num_users_for_items_shown = recommender.item_count[items_shown]
+        num_users_for_items_shown = recommender.item_count[np.unique(recommender.items_shown)]
         # calculate novelty between each user and their presented item slate
-        novelty = sum((-1) * math.log((num_users_for_items_shown*1.0) / recommender.num_users))
+        novelty = sum((-1) * np.log((num_users_for_items_shown*1.0) / recommender.num_users))
         # to complete the measurement, call `self.observe(metric_value)`
-        self.observe(novelty.mean())
+        """
+        slate_items_self_info = recommender.item_count[recommender.items_shown]
+        slate_items_self_info = (-1) * np.log(np.divide(slate_items_self_info, recommender.num_users))
+        slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)
+        slate_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
+        slate_novelty = np.sum(slate_novelty, axis=1)
+        self.observe(np.mean(slate_novelty))
         
 
 class SerendipityMetric(Measurement):
-    def __init__(self, name="novlety_metric", verbose=False):
+    def __init__(self, name="serendipity_metric", verbose=False):
         Measurement.__init__(self, name, verbose)
         
     def measure(self, recommender):
@@ -67,10 +79,11 @@ class SerendipityMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        interactions = recommender.interactions
-        if interactions.size == 0:
+        if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
+        """
+        OLD
         # Indices for the items shown
         items_shown = recommender.items_shown
         # Scores for the items shown
@@ -79,12 +92,25 @@ class SerendipityMetric(Measurement):
         user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
         # Topics that correspond to each item shown
         topics_shown = np.take_along_axis(np.broadcast_to(recommender.item_topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
+
+        # Need to update the below 2 lines depending on how user_topic_history is implemented in the wrapper class
         # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
         new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
         # calculate serendipity for all items presented to each user
         serendipity = np.sum(np.multiply(new_topics, user_scores_items_shown)) / recommender.num_users
         # to complete the measurement, call `self.observe(metric_value)`
         self.observe(serendipity)
+        """
+        # Scores for just the shown items that have a score greater than 0
+        user_scores_items_shown = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1) > 0
+        # Topics that correspond to each item shown
+        topics_shown = recommender.item_topics[recommender.items_shown]
+        # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
+        new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
+        # calculate serendipity for all items presented to each user
+        items_shown_serendipity = np.multiply(new_topics, user_scores_items_shown)
+        # Calculate average serendipity - average serendipity by slate AND users
+        self.observe(np.mean(items_shown_serendipity))
         
 class DiversityMetric(Measurement):
     def __init__(self, name="diversity_metric", verbose=False):
@@ -108,21 +134,21 @@ class DiversityMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-
+        interactions = recommender.interactions
+        if interactions.size == 0:
+            self.observe(None) # no interactions yet
+            return
+        # Getting all possible 2-item combinations (the indices) for the items in a slate
         combos = combinations(np.arange(recommender.num_items_per_iter), 2)
-        items_shown = recommender.items_shown
-
-        stop = 0
-        slate_diversity = np.zeros(recommender.num_users)
+        topic_similarity = np.zeros(recommender.num_users)
         for i in combos:
-            item_pair = items_shown[:, i]
+            # topic_similarity is equal to the number of 2-item combinations in which the items' topics are the same
+            item_pair = recommender.items_shown[:, i]
             topic_pair = recommender.item_topics[item_pair]
-            topic_similarity = (topic_pair[:,0] != topic_pair[:,1])
-            slate_diversity += topic_similarity
-        
-        diversity = 1 - (1 / (recommender.num_items_per_iter) * (recommender.num_items_per_iter-1))
-        diversity *= np.sum(slate_diversity)
-        self.observe(diversity)
+            topic_similarity += (topic_pair[:,0] == topic_pair[:,1])
+
+        slate_diversity = 1 - ((1 / (recommender.num_items_per_iter * (recommender.num_items_per_iter-1))) * topic_similarity)
+        self.observe(np.mean(slate_diversity))
 
 class TopicInteractionMeasurement(Measurement):
     """
