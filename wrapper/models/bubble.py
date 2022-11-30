@@ -15,7 +15,7 @@ class BubbleBurster(ContentFiltering):
     Parameters
     -----------
             
-        item_topics: array_like, size=(1 x num_items)
+        item_topics: array_like, size=(, num_items)
             Represents the topic cluster to which each item belongs
             
         num_topics: int, optional
@@ -23,13 +23,11 @@ class BubbleBurster(ContentFiltering):
             If a value is supplied, it must be equal to the length of set(item_topics)
             
         user_topic_history: :obj:`numpy.ndarray`, optional
-            A :math:`|U|\\times(num_topics)` matrix that represents whether a user has been shown an item that 
-            belongs to topic for all 'topic' in 'set(item_topics)', up to and including the current timestep
-            Elements consist of boolean, 0 or 1, values, such that: 
-                user_topic_history[i,j] = 1: if topic has been presented in any past-present slate
-                user_topic_history[i,j] = 0: if topic has not been presented in any past-present slate
+            A :math:`|U|\\times(num_topics)` matrix that represents the number of times 
+            each topic has been interacted with/consumed by each user over all timesteps 
+            up to the present timestep
                 
-        item_count: array_like, size=(1 x num_items), optional
+        item_count: array_like, size=(, num_items), optional
             Represents the total number of users that have consumed each of the items 
             up to and including the current timestep
     
@@ -73,7 +71,7 @@ class BubbleBurster(ContentFiltering):
             
         # Initializing 'num_topics' attribute
         if num_topics == None:
-            self.num_topics = len(set(item_topics))
+            self.num_topics = np.unique(item_topics).size #len(set(item_topics))
         elif num_topics == len(set(item_topics)):
             num_topics = num_topics
         else:
@@ -89,7 +87,7 @@ class BubbleBurster(ContentFiltering):
         
         # Initializing 'item_count' attribute
         if item_count == None:
-            self.item_count = np.zeros((1,self.num_items))
+            self.item_count = np.zeros((self.num_items)).astype(int)
         elif item_count.shape != (1, self.num_items):
             raise TypeError("item_count must have shape=(1, recommender.num_items)")
         else:
@@ -97,14 +95,11 @@ class BubbleBurster(ContentFiltering):
         
     def _update_internal_state(self, interactions):
         ContentFiltering._update_internal_state(self, interactions)
-        items_shown = self.items_shown
-        for i in range(items_shown.shape[0]):
-            items_shown_val, items_shown_count = np.unique(items_shown[i,:], return_counts=True)
-            self.item_count[0, items_shown_val] += 1
-            topics_shown = self.item_topics[items_shown_val]
-            topics_shown_val, topics_shown_count = np.unique(topics_shown, return_counts=True)
-            self.user_topic_history[i, topics_shown_val] += topics_shown_count
-            if (sum(items_shown_count) != 10):
-                print("DUPLICATE ITEMS IN SLATE", items_shown_count)
-                break
-        # return item_count, user_topic_history
+        interacted_items = self.interactions
+        # Updating `item_count`
+        interacted_item_val, interacted_item_count = np.unique(interacted_items, return_counts=True)
+        self.item_count[interacted_item_val] += interacted_item_count
+        # Updating `user_topic_history`
+        interacted_topics = np.expand_dims(self.item_topics[interacted_items], axis=1)
+        old_topic_count = np.take_along_axis(self.user_topic_history, interacted_topics, axis=1)
+        np.put_along_axis(self.user_topic_history, interacted_topics, old_topic_count+1, axis=1)
