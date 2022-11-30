@@ -6,7 +6,6 @@ from trecs.models import BaseRecommender
 from trecs.models import ContentFiltering
 from trecs.random import Generator
 import trecs.matrix_ops as mo
-
 import numpy as np
 from numpy.linalg import norm
 import scipy.sparse as sp
@@ -59,9 +58,8 @@ class BubbleBurster(ContentFiltering):
         item_count=None,
         **kwargs
     ):
-        
         super().__init__(**kwargs)
-
+        
         # Initializing 'item_topics' attribute
         if (not isinstance(item_topics, (list, np.ndarray, sp.spmatrix))):
             raise TypeError("Must supply array_like object for 'item_topics'")
@@ -82,7 +80,7 @@ class BubbleBurster(ContentFiltering):
 
         # Initializing 'user_topic_history' attribute
         if user_topic_history == None:
-            self.user_topic_history = np.zeros((self.num_users, self.num_topics), dtype=int)
+            self.user_topic_history = np.zeros((self.num_users, self.num_topics))
         elif user_topic_history.shape != (self.num_users, self.num_topics) or ~((user_topic_history!=0) & (user_topic_history!=1)).any():
             raise TypeError("'user_topic_history' must be a binary ndarray with shape=(num_users, num_topics)")
         else:
