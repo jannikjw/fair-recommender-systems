@@ -47,7 +47,12 @@ class NoveltyMetric(Measurement):
         # to complete the measurement, call `self.observe(metric_value)`
         """
         slate_items_self_info = recommender.item_count[recommender.items_shown]
-        slate_items_self_info = (-1) * np.log(np.divide(slate_items_self_info, recommender.num_users))
+        
+        # replace 0s with 1s to avoid log(0) errors
+        slate_items_self_info_copy = slate_items_self_info.copy()
+        slate_items_self_info_copy[slate_items_self_info == 0] = 1
+
+        slate_items_self_info = (-1) * np.log(slate_items_self_info_copy) + recommender.num_users
         slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)
         slate_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
         slate_novelty = np.sum(slate_novelty, axis=1)
@@ -150,7 +155,7 @@ class DiversityMetric(Measurement):
         slate_diversity = 1 - ((1 / (recommender.num_items_per_iter * (recommender.num_items_per_iter-1))) * topic_similarity)
         self.observe(np.mean(slate_diversity))
 
-class TopicInteractionMeasurement(Measurement):
+class TopicInteractionMeasurement(Measurement): # TODO: Make this work
     """
     Keeps track of the interactions between users and topics.
 
@@ -199,7 +204,6 @@ class TopicInteractionMeasurement(Measurement):
                 Histogram of the number of interactions aggregated by items at the given timestep.
         """
         histogram = np.zeros(num_topics)
-        print(interactions)
         np.add.at(histogram, interactions, 1)
         # Check that there's one interaction per user
         if histogram.sum() != num_users:
@@ -223,6 +227,49 @@ class TopicInteractionMeasurement(Measurement):
             return
 
         histogram = self._generate_interaction_histogram(
-            recommender.user_topic_history, recommender.num_users, recommender.num_topics
+            recommender.topic_interactions, recommender.num_users, recommender.num_topics
         )
         self.observe(histogram, copy=True)
+
+class MeanNumberOfTopics(Measurement):
+    """
+    Keeps track of the interactions between users and topics.
+
+    Specifically, at each timestep, it stores a histogram of length
+    :math:`|I|`, where element :math:`i` is the number of interactions
+    received by topic :math:`i`.
+
+    Parameters
+    -----------
+
+        verbose: bool, default False
+            If ``True``, enables verbose mode. Disabled by default.
+
+    Attributes
+    -----------
+        Inherited by Measurement: :class:`.Measurement`
+
+        name: str, default ``"topic_interaction_histogram"``
+            Name of the measurement component.
+    """
+
+    def __init__(self, name="mean_num_topics", verbose=False):
+        Measurement.__init__(self, name, verbose)
+
+
+    def measure(self, recommender):
+        """
+        Measures and stores a histogram of the number of interactions per
+        item at the given timestep.
+
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from :class:`~models.recommender.BaseRecommender`.
+        """
+        if recommender.interactions.size == 0:
+            # at beginning of simulation, there are no interactions
+            self.observe(None)
+            return
+
+        self.observe(np.mean(recommender.user_topic_history.sum(axis=1)))

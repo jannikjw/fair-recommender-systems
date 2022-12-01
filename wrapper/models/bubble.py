@@ -104,5 +104,6 @@ class BubbleBurster(ContentFiltering):
         self.item_count[interacted_item_val] += interacted_item_count
         # Updating `user_topic_history`
         interacted_topics = np.expand_dims(self.item_topics[interacted_items], axis=1)
+        self.topic_interactions = interacted_topics
         old_topic_count = np.take_along_axis(self.user_topic_history, interacted_topics, axis=1)
         np.put_along_axis(self.user_topic_history, interacted_topics, old_topic_count+1, axis=1)
