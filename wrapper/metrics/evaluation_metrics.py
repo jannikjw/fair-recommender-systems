@@ -1,7 +1,7 @@
 import sys
 # caution: path[0] is reserved for script path (or '' in REPL)
 sys.path.insert(1, '../t-recs/')
-from trecs.metrics.measurement import Measurement
+from trecs.metrics import Measurement
 
 # import math
 import numpy as np
@@ -31,21 +31,6 @@ class NoveltyMetric(Measurement):
         if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
-        # Indices for the items shown
-        # items_shown = recommender.items_shown.flatten()
-        """
-        Need to implement it such that it subtracts the number of users who consumed
-        the item in the current timestep (if we are following that part of Chen et. al.'s
-        implementation).
-        """
-        """
-        OLD
-        # total number of users that have seen each of the items shown for all previous iterations
-        num_users_for_items_shown = recommender.item_count[np.unique(recommender.items_shown)]
-        # calculate novelty between each user and their presented item slate
-        novelty = sum((-1) * np.log((num_users_for_items_shown*1.0) / recommender.num_users))
-        # to complete the measurement, call `self.observe(metric_value)`
-        """
         slate_items_self_info = recommender.item_count[recommender.items_shown]
         
         # replace 0s with 1s to avoid log(0) errors
@@ -53,9 +38,9 @@ class NoveltyMetric(Measurement):
         slate_items_self_info_copy[slate_items_self_info == 0] = 1
 
         slate_items_self_info = (-1) * np.log(slate_items_self_info_copy) + recommender.num_users
-        slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)
-        slate_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
-        slate_novelty = np.sum(slate_novelty, axis=1)
+        slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)#.shape
+        item_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
+        slate_novelty = np.divide(np.sum(item_novelty, axis=1), recommender.num_items_per_iter)
         self.observe(np.mean(slate_novelty))
         
 
@@ -87,26 +72,7 @@ class SerendipityMetric(Measurement):
         if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
-        """
-        OLD
-        # Indices for the items shown
-        items_shown = recommender.items_shown
-        # Scores for the items shown
-        user_scores = recommender.users.actual_user_scores.value
-        # Scores for just the shown items that have a score greater than 0
-        user_scores_items_shown = np.take_along_axis(user_scores, items_shown, axis=1) > 0
-        # Topics that correspond to each item shown
-        topics_shown = np.take_along_axis(np.broadcast_to(recommender.item_topics, (recommender.num_users, recommender.num_items)), items_shown, axis=1)
-
-        # Need to update the below 2 lines depending on how user_topic_history is implemented in the wrapper class
-        # Boolean matrix where value=1 if the topic shown is not in the user history, otherwise value=0
-        new_topics = np.apply_along_axis(np.isin, 1, topics_shown, recommender.user_topic_history, invert=True)
-        # calculate serendipity for all items presented to each user
-        serendipity = np.sum(np.multiply(new_topics, user_scores_items_shown)) / recommender.num_users
-        # to complete the measurement, call `self.observe(metric_value)`
-        self.observe(serendipity)
-        """
-        # Scores for just the shown items that have a score greater than 0
+        # Boolean matrix where value=1 for the shown items that have a score greater than 0
         user_scores_items_shown = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1) > 0
         # Topics that correspond to each item shown
         topics_shown = recommender.item_topics[recommender.items_shown]
@@ -134,7 +100,7 @@ class DiversityMetric(Measurement):
         RecSys ’21, page 85–95, New York, NY, USA, 2021. Association for Computing Machinery.
         
         Parameters
-        ------------ 
+        ------------
             recommender: :class:`~models.recommender.BaseRecommender`
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
