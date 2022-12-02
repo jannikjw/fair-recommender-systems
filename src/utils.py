@@ -29,3 +29,19 @@ def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, 
     cluster_ids = kmeans.predict(W_topics)
 
     return cluster_ids
+
+
+def create_embeddings(binary_matrix, max_iter, n_attrs):
+    user_representation_file_path = f'artefacts/ml_user_representations_{max_iter}maxiter_{n_attrs}nAttrs.npy'
+    item_representation_file_path = f'artefacts/ml_item_representations_{max_iter}maxiter_{n_attrs}nAttrs.npy'
+    if not os.path.exists(user_representation_file_path) or not os.path.exists(item_representation_file_path):
+        nmf = NMF(n_components=n_attrs, init='random', random_state=random_state, max_iter=max_iter)
+        user_representation = nmf.fit_transform(binary_ratings_matrix)
+        item_representation = nmf.components_
+        np.save(user_representation_file_path, user_representation)
+        np.save(item_representation_file_path, item_representation)
+    else:
+        user_representation = np.load(user_representation_file_path)
+        item_representation = np.load(item_representation_file_path)
+        
+    return user_representation, item_representation
