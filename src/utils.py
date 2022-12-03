@@ -1,5 +1,5 @@
 from sklearn.cluster import KMeans
-from sklearn.decomposition import NMF
+from sklearn.decomposition import NMF, PCA
 import numpy as np
 import pandas as pd
 import os
@@ -21,15 +21,11 @@ def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, 
     if not os.path.exists(file_path):
         co_occurence_matrix = interaction_matrix.T @ interaction_matrix
 
-        # Matrix factorize co_occurence_matrix to get embeddings
-        nmf_cooc = NMF(n_components=n_attrs, max_iter=max_iter)
-        W_topics = nmf_cooc.fit_transform(co_occurence_matrix)
+        pca = PCA(n_attrs)
+        df = pca.fit_transform(co_occurence_matrix)
 
         # cluster W_topics
-        kmeans = KMeans(n_clusters=n_clusters, random_state=random_state).fit(W_topics)
-
-        # assign nearest cluster to observation
-        cluster_ids = kmeans.predict(W_topics)
+        cluster_ids = KMeans(n_clusters=n_clusters, random_state=random_state).fit_predict(df)
     else:
         cluster_ids = np.load(file_path)
 
