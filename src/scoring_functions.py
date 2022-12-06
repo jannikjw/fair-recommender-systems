@@ -12,13 +12,12 @@ def cosine_sim(predicted_user_profiles, predicted_item_attributes):
     user_norms = norm(predicted_user_profiles, axis=1)
     item_norms = norm(predicted_item_attributes, axis=0)
 
-    # create a matrix that contains the outer product of user_norms and item_norms
+    # create a matrix that contains the outer product aAf user_norms and item_norms
     norms = np.outer(user_norms, item_norms)
     cosine_similarities = predicted_scores / norms
     cosine_similarities = np.nan_to_num(cosine_similarities)
     # print max value of norms
     re_ranked_scores = predicted_scores - alpha * cosine_similarities
-    
     return re_ranked_scores
 
 def entropy(predicted_user_profiles, predicted_item_attributes):
@@ -26,7 +25,7 @@ def entropy(predicted_user_profiles, predicted_item_attributes):
     alpha = globals.ALPHA
     predicted_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
     
-    entropy = - predicted_scores @ np.log(predicted_scores.T)
+    entropy = - predicted_scores * np.log(predicted_scores + globals.EPS)
     
     re_ranked_scores = predicted_scores + alpha * entropy
     return re_ranked_scores

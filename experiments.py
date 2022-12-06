@@ -1,12 +1,13 @@
 import numpy as np
 import argparse
 import os
+import pickle 
 from trecs.metrics import MSEMeasurement, InteractionSpread, InteractionSpread, InteractionSimilarity, RecSimilarity, RMSEMeasurement, InteractionMeasurement
 from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
 from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
-from src.scoring_functions import cosine_sim
+from src.scoring_functions import cosine_sim, entropy
 import src.globals as globals
 from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics
 
@@ -18,8 +19,6 @@ random_state = np.random.seed(42)
 
 
 def run_experiment(config, measurements, train_timesteps=20, run_timesteps=50):
-    users = Users(actual_user_profiles=config['actual_user_representation'], repeat_interactions=False, attention_exp=1.5)
-
     model = BubbleBurster(**config)
 
     # Add Metrics
@@ -40,6 +39,8 @@ def create_folder_structure():
         os.mkdir('artefacts/measurements')
     if not os.path.exists('artefacts/representations/'):
         os.mkdir('artefacts/representations')
+    if not os.path.exists('artefacts/models/'):
+        os.mkdir('artefacts/models')
 
 
 def main():
@@ -65,6 +66,7 @@ def main():
     n_clusters = int(args.Clusters) if args.Clusters else 20
     train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 50
     run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
+    num_items_per_iter = 10
     max_iter = 1000
 
     globals.initialize()
@@ -75,6 +77,7 @@ def main():
     print("Number of Attributes: ", n_attrs)
     print("Number of Clusters: ", n_clusters)
     print("Lambda: ", globals.ALPHA)
+    print("Number of items recommended at each timesteps: ", num_items_per_iter)
     print("Training Timesteps: ", train_timesteps)
     print("Running Timesteps: ", run_timesteps)
 
@@ -82,11 +85,16 @@ def main():
     user_representation, item_representation = create_embeddings(binary_ratings_matrix, n_attrs=n_attrs, max_iter=max_iter)
     item_topics = get_topic_clusters(binary_ratings_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
 
+    users = Users(actual_user_profiles=user_representation, repeat_interactions=False, attention_exp=1.5)
+    
     config = {
-        'actual_user_representation': user_representation,
+        'actual_user_representation': users,
         'actual_item_representation': item_representation,
         'item_topics': item_topics,
         'num_attributes': n_attrs,
+        'num_items_per_iter': num_items_per_iter,
+        'seed': 42,
+        'record_base_state': True,
     }
 
     model_name='myopic'
@@ -95,6 +103,8 @@ def main():
         score_fn = args.ScoreFN
         if score_fn == 'cosine_sim':
             config['score_fn'] = cosine_sim
+        elif score_fn == 'entropy':
+            config['score_fn'] = entropy
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
@@ -117,12 +127,11 @@ def main():
     ]
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
-
-    path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters.csv'
-    measurements_df = load_or_create_measurements_df(model, model_name, path)
-    measurements_df['state'] = 'train'
-    measurements_df.loc[measurements_df['timesteps'] > train_timesteps, 'state'] = 'run'
-    measurements_df.to_csv(path)
+    
+    # Save measurements
+    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters.csv'
+    measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)
+    measurements_df.to_csv(measurements_path)
 
 
 if __name__=="__main__":
