@@ -6,6 +6,8 @@ from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
 from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
+from src.scoring_functions import cosine_sim
+import src.globals as globals
 from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics
 
 # ignore all future warnings
@@ -34,7 +36,7 @@ def create_folder_structure():
         os.mkdir('artefacts/')
     if not os.path.exists('artefacts/topic_clusters/'):
         os.mkdir('artefacts/topic_clusters')
-    if not os.exists('artefacts/measurements'):
+    if not os.path.exists('artefacts/measurements'):
         os.mkdir('artefacts/measurements')
     if not os.path.exists('artefacts/representations/'):
         os.mkdir('artefacts/representations')
@@ -53,21 +55,26 @@ def main():
     parser.add_argument("-rt", "--RunTimesteps", help = "Number of timesteps for simulation")
     parser.add_argument("-p", "--Probabilistic", help = "Is model probabilistic?")
     parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model")
+    parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function")
 
     # Read arguments from command line
     args = parser.parse_args()
     print(args)
 
-    n_attrs = int(args.Attributes) if args.Attributes else 100
+    n_attrs = int(args.Attributes) if args.Attributes else 500
     n_clusters = int(args.Clusters) if args.Clusters else 20
-    train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 5
-    run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 5
-    max_iter = 500
+    train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 50
+    run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
+    max_iter = 1000
+
+    globals.initialize()
+    globals.ALPHA = float(args.Lambda) if args.Lambda else 0.2
 
     # print variables above
     print("Number of Iterations for NMF: ", max_iter)
     print("Number of Attributes: ", n_attrs)
     print("Number of Clusters: ", n_clusters)
+    print("Lambda: ", globals.ALPHA)
     print("Training Timesteps: ", train_timesteps)
     print("Running Timesteps: ", run_timesteps)
 
@@ -85,7 +92,11 @@ def main():
     model_name='myopic'
 
     if args.ScoreFN:
-        config['score_fn'] = args.ScoreFN
+        score_fn = args.ScoreFN
+        if score_fn == 'cosine_sim':
+            config['score_fn'] = cosine_sim
+        else:
+            raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
     if args.Probabilistic == 'True':
         config['probabilistic_recommendations'] = True
@@ -109,6 +120,8 @@ def main():
 
     path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, path)
+    measurements_df['state'] = 'train'
+    measurements_df.loc[measurements_df['timesteps'] > train_timesteps, 'state'] = 'run'
     measurements_df.to_csv(path)
 
 

@@ -19,18 +19,23 @@ def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, 
     #create co-occurence matrix from binary_interaction_matrix
     file_path = f'artefacts/topic_clusters/topic_clusters_{n_clusters}clusters_{n_attrs}attributes_{max_iter}iters.npy'
     if not os.path.exists(file_path):
+        print('Calculating clusters...')
         co_occurence_matrix = interaction_matrix.T @ interaction_matrix
 
         co_occurence_matrix = interaction_matrix.T @ interaction_matrix
 
         # Matrix factorize co_occurence_matrix to get embeddings
-        nmf_cooc = NMF(n_components=n_attrs, max_iter=max_iter)
+        nmf_cooc = NMF(n_components=n_attrs, max_iter=max_iter, verbose=1)
         W_topics = nmf_cooc.fit_transform(co_occurence_matrix)
 
         # cluster W_topics
-        cluster_ids = KMeans(n_clusters=n_clusters, random_state=random_state).fit_predict(W_topics)
+        cluster_ids = KMeans(n_clusters=n_clusters, max_iter=max_iter, random_state=random_state, verbose=1).fit_predict(W_topics)
+        np.save(file_path, cluster_ids)
+
+        print('Calculated clusters.')
     else:
         cluster_ids = np.load(file_path)
+        print('Loaded clusters.')
 
     return cluster_ids
 
@@ -49,14 +54,18 @@ def create_embeddings(binary_matrix, n_attrs:int=100, max_iter:int=100):
     user_representation_file_path = f'artefacts/representations/ml_user_representations_{n_attrs}attributes_{max_iter}iters.npy'
     item_representation_file_path = f'artefacts/representations/ml_item_representations_{n_attrs}attributes_{max_iter}iters.npy'
     if not os.path.exists(user_representation_file_path) or not os.path.exists(item_representation_file_path):
+        print('Calculating embeddings...')
         nmf = NMF(n_components=n_attrs, init='random', random_state=random_state, max_iter=max_iter)
         user_representation = nmf.fit_transform(binary_matrix)
         item_representation = nmf.components_
         np.save(user_representation_file_path, user_representation)
         np.save(item_representation_file_path, item_representation)
+        print('Calculated embeddings.')
     else:
         user_representation = np.load(user_representation_file_path)
         item_representation = np.load(item_representation_file_path)
+        print('Loaded embeddings.')
+
 
     return user_representation, item_representation
 
