@@ -34,13 +34,10 @@ class NoveltyMetric(Measurement):
         slate_items_self_info = recommender.item_count[recommender.items_shown]
         
         # replace 0s with 1s to avoid log(0) errors
-        slate_items_self_info_copy = slate_items_self_info.copy()
-        slate_items_self_info_copy[slate_items_self_info == 0] = 1
-
-        slate_items_self_info = (-1) * np.log(slate_items_self_info_copy) + recommender.num_users
+        slate_items_self_info = (-1) * np.log(slate_items_self_info+1e-6) + recommender.num_users
         slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)#.shape
         item_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
-        slate_novelty = np.divide(np.sum(item_novelty, axis=1), recommender.num_items_per_iter)
+        slate_novelty = np.sum(item_novelty, axis=1)
         self.observe(np.mean(slate_novelty))
         
 
