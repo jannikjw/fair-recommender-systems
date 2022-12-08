@@ -3,6 +3,7 @@ from sklearn.decomposition import NMF
 import numpy as np
 import pandas as pd
 import os
+import src.globals as globals
 random_state = np.random.seed(42)
 
 def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, max_iter:int=100):
@@ -80,7 +81,7 @@ def load_and_process_movielens(file_path):
     return binary_ratings_matrix
 
 
-def load_or_create_measurements_df(model, model_name, alpha, train_timesteps, file_path):
+def load_or_create_measurements_df(model, model_name, train_timesteps, file_path):
     if os.path.exists(file_path):
         df = pd.read_csv(file_path, index_col=0)
     else:
@@ -89,6 +90,6 @@ def load_or_create_measurements_df(model, model_name, alpha, train_timesteps, fi
         df['state'] = 'train' # makes it easier to later understand which part was training
         df.loc[df['timesteps'] > train_timesteps, 'state'] = 'run'
         df['model'] = model_name
-        df['lambda'] = alpha
+        df['lambda'] = globals.ALPHA
     
     return df

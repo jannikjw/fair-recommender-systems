@@ -99,13 +99,16 @@ def main():
     }
 
     model_name='myopic'
-
+    requires_alpha = False
+    
     if args.ScoreFN:
         score_fn = args.ScoreFN
         if score_fn == 'cosine_sim':
             config['score_fn'] = cosine_sim
+            requires_alpha = True
         elif score_fn == 'entropy':
             config['score_fn'] = entropy
+            requires_alpha = True
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
@@ -130,8 +133,11 @@ def main():
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
     # Save measurements
-    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{alpha}Lambda.csv'
-    measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, alpha, measurements_path)
+    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters'
+    if requires_alpha:
+        measurements_path += f'_{alpha}Lambda'
+    measurements_path += '.csv'
+    measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)
     measurements_df.to_csv(measurements_path)
     print('Measurements saved.')
 

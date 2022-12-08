@@ -31,14 +31,19 @@ class NoveltyMetric(Measurement):
         if recommender.interactions.size == 0:
             self.observe(None) # no interactions yet
             return
-        slate_items_self_info = recommender.item_count[recommender.items_shown]
-        
-        # replace 0s with 1s to avoid log(0) errors
-        slate_items_self_info = (-1) * np.log(slate_items_self_info+1e-6) + recommender.num_users
-        slate_items_pred_score = np.take_along_axis(recommender.users.actual_user_scores.value, recommender.items_shown, axis=1)#.shape
-        item_novelty = np.multiply(slate_items_self_info, slate_items_pred_score)
-        slate_novelty = np.sum(item_novelty, axis=1)
-        self.observe(np.mean(slate_novelty))
+                
+        # calculate self information of each item (add eps to avoid log(0) errors)
+        item_counts = recommender.item_count
+        item_counts[item_counts == 0] = 1
+        items_self_info = (-1) * np.log(item_counts)
+        # multiply self information and item score
+        # get utility of each item given a state of users
+        item_states = np.mean(recommender.predicted_scores.value, axis=0)
+        # calculate novelty per item by multiplying self information and utility value
+        item_novelties = items_self_info * item_states
+        # form sum over all possible items/actions
+        item_novelty = np.sum(item_novelties)
+        self.observe(item_novelty)
         
 
 class SerendipityMetric(Measurement):
