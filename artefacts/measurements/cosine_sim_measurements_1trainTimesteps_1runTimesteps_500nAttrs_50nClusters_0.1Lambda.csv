@@ -1,0 +1,4 @@
+,interaction_histogram,mse,interaction_spread,interaction_similarity,rec_similarity,serendipity_metric,diversity_metric,novelty_metric,timesteps,state,model,lambda
+0,,0.014654112668664307,,,,,,,0,train,cosine_sim,0.1
+1,[3. 1. 0. ... 0. 0. 0.],0.014654112668664307,-939.5,0.0021917370725185238,0.004228485464241182,0.6237539766702015,0.9271945328148934,0.0,1,train,cosine_sim,0.1
+2,[3. 0. 2. ... 3. 0. 0.],428.0257543735428,21.0,0.005509143108397597,0.0406036808790757,0.636373276776246,0.924284199363733,-32502463.456094548,2,run,cosine_sim,0.1
