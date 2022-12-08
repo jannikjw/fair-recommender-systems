@@ -63,14 +63,15 @@ def main():
     print(args)
 
     n_attrs = int(args.Attributes) if args.Attributes else 500
-    n_clusters = int(args.Clusters) if args.Clusters else 20
-    train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 50
+    n_clusters = int(args.Clusters) if args.Clusters else 50
+    train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 10
     run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
     num_items_per_iter = 10
     max_iter = 1000
 
     globals.initialize()
     globals.ALPHA = float(args.Lambda) if args.Lambda else 0.2
+    alpha = globals.ALPHA
 
     # print variables above
     print("Number of Iterations for NMF: ", max_iter)
@@ -85,7 +86,7 @@ def main():
     user_representation, item_representation = create_embeddings(binary_ratings_matrix, n_attrs=n_attrs, max_iter=max_iter)
     item_topics = get_topic_clusters(binary_ratings_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
 
-    users = Users(actual_user_profiles=user_representation, repeat_interactions=False, attention_exp=1.5)
+    users = Users(actual_user_profiles=user_representation, repeat_interactions=False, attention_exp=1.5, verbose=True)
     
     config = {
         'actual_user_representation': users,
@@ -98,13 +99,16 @@ def main():
     }
 
     model_name='myopic'
-
+    requires_alpha = False
+    
     if args.ScoreFN:
         score_fn = args.ScoreFN
         if score_fn == 'cosine_sim':
             config['score_fn'] = cosine_sim
+            requires_alpha = True
         elif score_fn == 'entropy':
             config['score_fn'] = entropy
+            requires_alpha = True
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
@@ -120,7 +124,7 @@ def main():
         InteractionSimilarity(pairs=user_pairs), 
         RecSimilarity(pairs=user_pairs), 
         # TopicInteractionMeasurement(),
-        MeanNumberOfTopics(),
+        # MeanNumberOfTopics(),
         SerendipityMetric(), 
         DiversityMetric(), 
         NoveltyMetric()
@@ -129,9 +133,13 @@ def main():
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
     # Save measurements
-    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters.csv'
+    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters'
+    if requires_alpha:
+        measurements_path += f'_{alpha}Lambda'
+    measurements_path += '.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)
     measurements_df.to_csv(measurements_path)
+    print('Measurements saved.')
 
 
 if __name__=="__main__":
