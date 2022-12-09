@@ -62,7 +62,7 @@ def main():
     args = parser.parse_args()
     print(args)
 
-    n_attrs = int(args.Attributes) if args.Attributes else 500
+    n_attrs = int(args.Attributes) if args.Attributes else 20
     n_clusters = int(args.Clusters) if args.Clusters else 50
     train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 10
     run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
@@ -115,6 +115,8 @@ def main():
     if args.Probabilistic == 'True':
         config['probabilistic_recommendations'] = True
         model_name += '_prob'
+        
+    print(f'Model name: {model_name}')
 
     user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
     measurements = [
