@@ -241,3 +241,20 @@ class MeanNumberOfTopics(Measurement):
             return
 
         self.observe(np.mean(recommender.user_topic_history.sum(axis=1)))
+        
+class UserMSEMeasurement(Measurement):
+    def __init__(self, name="user_mse", verbose=False):
+        Measurement.__init__(self, name, verbose)
+        
+    def measure(self, recommender):
+        """
+        Measures the MSE per user at the current timestep
+        
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from
+                :class:`~models.recommender.BaseRecommender`.
+        """
+        diff = recommender.predicted_scores.value - recommender.users.actual_user_scores.value
+        self.observe((diff**2).mean(axis=1))
