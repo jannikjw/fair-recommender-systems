@@ -9,7 +9,7 @@ from wrapper.models.bubble import BubbleBurster
 from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
 from src.scoring_functions import cosine_sim, entropy, content_fairness
 import src.globals as globals
-from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics
+from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement
 
 # ignore all future warnings
 from warnings import simplefilter
@@ -148,7 +148,8 @@ def main():
         # MeanNumberOfTopics(),
         SerendipityMetric(), 
         DiversityMetric(), 
-        NoveltyMetric()
+        NoveltyMetric(),
+        RecallMeasurement(),
     ]
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
