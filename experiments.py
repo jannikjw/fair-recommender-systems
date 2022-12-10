@@ -7,7 +7,7 @@ from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
 from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
-from src.scoring_functions import cosine_sim, entropy
+from src.scoring_functions import cosine_sim, entropy, content_fairness
 import src.globals as globals
 from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics
 

@@ -36,9 +36,14 @@ class NoveltyMetric(Measurement):
         item_counts = recommender.item_count
         item_counts[item_counts == 0] = 1
         items_self_info = (-1) * np.log(item_counts)
-        # multiply self information and item score
+        
+        # turn scores in probability distribution over items to ensure that all independent of the ranking function, the metric yields comparable values
+        scores = recommender.predicted_scores.value
+        probs = scores / np.sum(scores, axis=1)[:, np.newaxis]
+        
         # get utility of each item given a state of users
-        item_states = np.mean(recommender.predicted_scores.value, axis=0)
+        item_states = np.mean(probs, axis=0)
+        
         # calculate novelty per item by multiplying self information and utility value
         item_novelties = items_self_info * item_states
         # form sum over all possible items/actions
