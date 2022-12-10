@@ -3,6 +3,7 @@ from sklearn.decomposition import NMF
 import numpy as np
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
 import src.globals as globals
 random_state = np.random.seed(42)
 
@@ -21,8 +22,6 @@ def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, 
     file_path = f'artefacts/topic_clusters/topic_clusters_{n_clusters}clusters_{n_attrs}attributes_{max_iter}iters.npy'
     if not os.path.exists(file_path):
         print('Calculating clusters...')
-        co_occurence_matrix = interaction_matrix.T @ interaction_matrix
-
         co_occurence_matrix = interaction_matrix.T @ interaction_matrix
 
         # Matrix factorize co_occurence_matrix to get embeddings

@@ -70,7 +70,7 @@ def main():
     max_iter = 1000
 
     globals.initialize()
-    globals.ALPHA = float(args.Lambda) if args.Lambda else 0.2
+    globals.ALPHA = float(args.Lambda) if args.Lambda else float(0.2)  
     alpha = globals.ALPHA
 
     # print variables above
