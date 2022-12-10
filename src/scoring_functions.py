@@ -18,6 +18,10 @@ def cosine_sim(predicted_user_profiles, predicted_item_attributes):
     cosine_similarities = np.nan_to_num(cosine_similarities)
     # print max value of norms
     re_ranked_scores = predicted_scores - alpha * cosine_similarities
+    # add minimum value of each row to all item scores to ensure scores are positive.
+    re_ranked_scores += np.repeat(np.abs(np.min(re_ranked_scores)[:, np.newaxis], len(re_ranked_scores[0]), axis=1)
+
+    assert (re_ranked_scores >= 0).all(), "Some scores are negative."
     return re_ranked_scores
 
 
@@ -29,6 +33,8 @@ def entropy(predicted_user_profiles, predicted_item_attributes):
     entropy = - predicted_scores * np.log(predicted_scores + globals.EPS)
     
     re_ranked_scores = predicted_scores + alpha * entropy
+    assert (re_ranked_scores >= 0).all(), "Some scores are negative."
+
     return re_ranked_scores
 
 
@@ -39,12 +45,10 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
 
     predicted_scores =  mo.inner_product(predicted_user_profiles, predicted_item_attributes)
     probs = (predicted_scores.T / np.sum(predicted_scores, axis=1)).T
-    
-    assert np.sum(probs[0]) == 1
+
     probs_sorted = np.flip(np.argsort(probs, axis=1), axis=1)
     
     gw = predicted_item_attributes.T / np.sum(predicted_item_attributes.T, axis=1)[:, np.newaxis]
-    assert np.round(np.sum(gw[0]), 6) == 1.0
 
     num_user = len(predicted_user_profiles)
     recs = np.empty((num_user, slate_size))
@@ -64,3 +68,5 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
     for i, user in enumerate(recs):
         for item in np.flip(user):
             predicted_scores_reranked[int(i), int(item)] = np.max(predicted_scores_reranked[int(i)]) + 1
+
+    return predicted_scores_reranked

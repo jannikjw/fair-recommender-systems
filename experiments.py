@@ -109,6 +109,8 @@ def main():
         elif score_fn == 'entropy':
             config['score_fn'] = entropy
             requires_alpha = True
+        elif score_fn == 'content_fairness':
+            config['score_fn'] = content_fairness        
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN

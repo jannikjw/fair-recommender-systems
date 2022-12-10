@@ -93,3 +93,85 @@ def load_or_create_measurements_df(model, model_name, train_timesteps, file_path
         df['lambda'] = globals.ALPHA
     
     return df
+
+
+def collect_parameters(file):
+    numeric_cols = ['trainTimesteps', 'runTimesteps', 'nAttrs', 'nClusters', 'Lambda']
+    columns = ['model_name'] + numeric_cols
+    
+    file_name = file[:-4]
+    params = file_name.split('_')
+    params_start_id = params.index('measurements')
+    model_name = '_'.join(params[:params_start_id])
+    row = []
+    row.append(model_name)
+    for col in columns:
+        for param in params:
+            if param.endswith(col):
+                value = param[:param.find(col)]
+                row.append(value)
+    return row
+
+
+def load_measurements(path):
+    dfs = []
+    data = []
+    numeric_cols = ['trainTimesteps', 'runTimesteps', 'nAttrs', 'nClusters', 'Lambda']
+    columns = ['model_name'] + numeric_cols
+    
+    for file in os.listdir(path):
+        if file.endswith('.csv'):
+            row = collect_parameters(file)
+            data.append(row)
+            df = pd.read_csv(path + '/' + file)
+            dfs.append(df)
+    
+    parameters_df = pd.DataFrame(data, 
+                                 columns=columns)                                
+    for col in numeric_cols:
+        parameters_df[col] = pd.to_numeric(parameters_df[col])
+    return dfs, parameters_df
+
+def plot_measurements(dfs, parameters_df):
+
+    fig, ax = plt.subplots(2, 3, figsize=(15, 15))
+    fig.tight_layout(pad=5.0)
+
+    # plot rec_similarity with timesteps on x axis
+    legend_lines, legend_names = [], []
+    for i, df in enumerate(dfs):
+        ts = df['timesteps']
+        name = parameters_df.loc[i, 'model_name']
+        if not np.isnan(parameters_df.loc[i, 'Lambda']):
+             name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})" 
+        legend_names.append(name)
+        ax[0,0].plot(ts, df['mse'], label=name)
+        ax[0,1].plot(ts, df['rec_similarity'], label=name)
+        ax[0,2].plot(ts, df['interaction_similarity'], label=name)
+        ax[1,0].plot(ts, df['serendipity_metric'], label=name)
+        ax[1,1].plot(ts, df['novelty_metric'], label=name)
+        line, = ax[1,2].plot(ts, df['diversity_metric'], label=name)
+        legend_lines.append(line)
+
+    for a in ax:
+        for b in a:
+            b.set_xlabel('Timestep')
+
+    ax[0, 0].set_title('Mean Squared Error')
+    ax[0, 0].set_ylabel('MSE')
+    
+    ax[0, 1].set_title('Recommendation similarity')
+    ax[0, 1].set_ylabel('Similarity')
+    
+    ax[0, 2].set_title('Interaction Similarity')
+    ax[0, 2].set_ylabel('Jaccard Similarity')
+    
+    ax[1, 0].set_title('Serendipity')
+    ax[1, 0].set_ylabel('Serendipity')
+    
+    ax[1, 1].set_title('Novelty')
+    ax[1, 1].set_ylabel('Novelty')
+
+    ax[1, 2].set_title('Diversity')
+    ax[1, 2].set_ylabel('Diversity')
+    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
