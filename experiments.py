@@ -82,10 +82,16 @@ def main():
     print("Training Timesteps: ", train_timesteps)
     print("Running Timesteps: ", run_timesteps)
 
-    binary_ratings_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
-    user_representation, item_representation = create_embeddings(binary_ratings_matrix, n_attrs=n_attrs, max_iter=max_iter)
-    item_topics = get_topic_clusters(binary_ratings_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
+    interaction_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
+    user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
+    
+    item_cooccurrence_matrix = interaction_matrix.T @ interaction_matrix
+    item_topics = get_topic_clusters(item_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
 
+    user_cooccurrence_matrix = interaction_matrix @ interaction_matrix.T
+    user_groups = get_topic_clusters(user_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
+
+    
     users = Users(actual_user_profiles=user_representation, repeat_interactions=False, attention_exp=1.5, verbose=True)
     
     config = {
@@ -120,7 +126,18 @@ def main():
         
     print(f'Model name: {model_name}')
 
-    user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
+    # Create alll possible user pairs
+    # user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
+    
+    # Create only user pairs between users of different bubbles
+    num_users = len(user_representation)
+    user_pairs = []
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_groups[u_idx] != user_groups[v_idx]:
+                user_pairs.append((u_idx, v_idx))
+    
+    
     measurements = [
         InteractionMeasurement(), 
         MSEMeasurement(),  
