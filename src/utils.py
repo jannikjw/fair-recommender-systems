@@ -3,7 +3,6 @@ from sklearn.decomposition import NMF
 import numpy as np
 import pandas as pd
 import os
-import src.globals as globals
 random_state = np.random.seed(42)
 
 def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, max_iter:int=100):
@@ -88,8 +87,54 @@ def load_or_create_measurements_df(model, model_name, train_timesteps, file_path
         measurements = model.get_measurements()
         df = pd.DataFrame(measurements)
         df['state'] = 'train' # makes it easier to later understand which part was training
-        df.loc[df['timesteps'] > train_timesteps, 'state'] = 'run'
+        df.loc[measurements_df['timesteps'] > train_timesteps, 'state'] = 'run'
         df['model'] = model_name
-        df['lambda'] = globals.ALPHA
     
     return df
+
+def user_topic_mapping(user_profiles, item_attributes, item_topics):
+    """
+    This function maps users to topics. This mapping can be for either:
+        -> actual_user_topic_mapping:
+            such that:  user_profiles = actual_user_profiles, and
+                        item_attributes = actual_item_attributes
+        -> predicted_user_topic_mapping:
+            such that:  user_profiles = predicted_user_profiles, and
+                        item_attributes = predicted_item_attributes
+    
+    Parameters
+    -----------
+        user_profiles: :obj:`numpy.ndarray`, with dims=(#users, #attributes),
+                where #attributes is equal to the number of attributes that the algorithm 
+                uses to represent each item and user.
+            Matrix representation of either predicted or actual user profiles.
+            
+        item_attributes: :obj:`numpy.ndarray`, with dims=(#attributes, #items),
+                where # attributes is equal to the number of attributes that the algorithm 
+                uses to represent each item and user.
+            Matrix representation of either predicted or actual item attributes
+        
+        item_topics: array_like, size=(, num_items)
+            Represents the topic cluster to which each item belongs
+    Returns
+    ---------
+        :obj:`numpy.ndarray`, with dims=(#users, |set(item_topics)|)
+            Histogram of the number of interactions aggregated by items at the given timestep.
+    """
+    
+    assert ((user_profiles.shape[1] == item_attributes.shape[0]), 
+            "No. attributes must be consistent for predicted_user_profiles and predicted_item_attributes")
+    assert ((item_topics.shape == (item_attributes.shape[1],)),
+            "item_topics must have shape=(#items,)")
+    
+    topics = np.unique(item_topics)
+    user_item_scores = mo.inner_product(user_profiles, item_attributes)
+    user_topic_mapping = np.zeros((user_profiles.shape[0], topics.size))
+    for topic_i in topics:
+        topic_idx = np.where(item_topics == topic_i)[0]
+        # topic_i_user_scores = np.mean(user_item_scores[:, topic_idx], axis=1)
+        # user_topic_mapping[:,topic_i] = topic_i_user_scores
+        # ^ Condensed:
+        user_topic_mapping[:,topic_i] = np.mean(user_item_scores[:, topic_idx], axis=1)
+        
+    return user_topic_mapping
