@@ -105,14 +105,3 @@ class BubbleBurster(ContentFiltering):
         self.topic_interactions = interacted_topics
         old_topic_count = np.take_along_axis(self.user_topic_history, interacted_topics, axis=1)
         np.put_along_axis(self.user_topic_history, interacted_topics, old_topic_count+1, axis=1)
-        
-    # def next_k_myopic_scoring(predicted_user_profiles, predicted_item_attributes):
-    #     # alpha is equal to k, the number of items that we wish to exclude from recommending
-    #     alpha = 10 #ALPHA
-    #     pred_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
-    #     sorted_index_array = np.argsort(predicted_user_profiles)
-    #     rs = RandomState(42)
-    #     top_k_idxs = mo.top_k_indices(matrix=pred_scores, k=alpha, random_state=rs)
-    #     re_ranked_scores = pred_scores
-    #     np.put_along_axis(arr=re_ranked_scores, indices=top_k_idxs, values=0, axis=1)
-    #     return re_ranked_scores
