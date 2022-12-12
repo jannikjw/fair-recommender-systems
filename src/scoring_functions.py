@@ -68,38 +68,40 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
     # 1. Calculate myopic scores
     predicted_scores =  mo.inner_product(predicted_user_profiles, predicted_item_attributes)
 
-    # 2. Calculate probabilities and sort them
-    if np.sum(predicted_scores) == 0:
-        return predicted_scores
-    probs = (predicted_scores.T / np.sum(predicted_scores, axis=1)).T
-    probs_sorted = np.flip(np.argsort(probs, axis=1), axis=1)
+    # # 2. Calculate probabilities and sort them
+    # if np.sum(predicted_scores) == 0:
+    #     return predicted_scores
+    # probs = (predicted_scores.T / np.sum(predicted_scores, axis=1)).T
+    # probs_sorted = np.flip(np.argsort(probs, axis=1), axis=1)
     
-    # 3. Determine weight per embedding dimension for each item (scaled to [0,1])
-    gw = predicted_item_attributes.T / np.sum(predicted_item_attributes.T, axis=1)[:, np.newaxis]
+    # # 3. Determine weight per embedding dimension for each item (scaled to [0,1])
+    # gw = predicted_item_attributes.T / np.sum(predicted_item_attributes.T, axis=1)[:, np.newaxis]
 
-    num_user = len(predicted_user_profiles)
-    recs = np.empty((num_user, slate_size), dtype=int)
+    # num_user = len(predicted_user_profiles)
+    # recs = np.empty((num_user, slate_size), dtype=int)
     
-    for user in range(len(probs_sorted)):
-        agg_weight_per_cluster = np.zeros((len(gw[0]))) # matrix to keep track of weights of slate 
+    # for user in range(len(probs_sorted)):
+    #     agg_weight_per_cluster = np.zeros((len(gw[0]))) # matrix to keep track of weights of slate 
         
-        i = 0
-        # 4. Create slate in order of myopic scores
-        for item in probs_sorted[user]:
-            weight_item = gw[item]
-            # print(f'{item}: {weight_item}')
+    #     i = 0
+    #     # 4. Create slate in order of myopic scores
+    #     for item in probs_sorted[user]:
+    #         weight_item = gw[item]
+    #         # print(f'{item}: {weight_item}')
             
-            # 5. Calculate weights if item was added to slate. If exceeds upper_bound go to next item.
-            proposed_weights = weight_item + agg_weight_per_cluster
-            if (proposed_weights <= upper_bound).all() and i < slate_size:
-                agg_weight_per_cluster = proposed_weights
-                recs[user, i] = item
-                i += 1
+    #         # 5. Calculate weights if item was added to slate. If exceeds upper_bound go to next item.
+    #         proposed_weights = weight_item + agg_weight_per_cluster
+    #         if (proposed_weights <= upper_bound).all() and i < slate_size:
+    #             agg_weight_per_cluster = proposed_weights
+    #             recs[user, i] = item
+    #             i += 1
 
-    # 6. Manually assign new scores to items in slate
-    predicted_scores_reranked = np.copy(predicted_scores)
-    for i, user in enumerate(recs):
-        for item in np.flip(user):
-            predicted_scores_reranked[int(i), int(item)] = np.max(predicted_scores_reranked[int(i)]) + 1
+    # # 6. Manually assign new scores to items in slate
+    # predicted_scores_reranked = np.copy(predicted_scores)
+    # for i, user in enumerate(recs):
+    #     for item in np.flip(user):
+    #         predicted_scores_reranked[int(i), int(item)] = np.max(predicted_scores_reranked[int(i)]) + 1
 
-    return predicted_scores_reranked
+    # return predicted_scores_reranked
+
+    return predicted_scores

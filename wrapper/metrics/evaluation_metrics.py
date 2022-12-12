@@ -23,7 +23,7 @@ class NoveltyMetric(Measurement):
         RecSys ’21, page 85–95, New York, NY, USA, 2021. Association for Computing Machinery.
         
         Parameters
-        ------------
+        ------- -----
             recommender: :class:`~models.recommender.BaseRecommender`
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
