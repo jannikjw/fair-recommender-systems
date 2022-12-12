@@ -247,7 +247,7 @@ class MeanNumberOfTopics(Measurement):
 
         self.observe(np.mean(recommender.user_topic_history.sum(axis=1)))
         
-
+        
 class RecallMeasurement(Measurement):
     """
     Measures the proportion of relevant items (i.e., those users interacted with) falling
@@ -276,12 +276,7 @@ class RecallMeasurement(Measurement):
     def measure(self, recommender):
         """
         Measures the proportion of relevant items (i.e., those users interacted with) falling
-        within the top k ranked items shown..
-        Parameters
-        ------------
-            recommender: :class:`~models.recommender.BaseRecommender`
-                Model that inherits from
-                :class:`~models.recommender.BaseRecommender`.
+        within the top k ranked items shown.
         """
         if self.k >= recommender.num_items_per_iter:
             raise ValueError("k must be smaller than the number of items per iteration")
@@ -304,3 +299,20 @@ class RecallMeasurement(Measurement):
             )
 
         self.observe(recall)
+
+        
+class UserMSEMeasurement(Measurement):
+    def __init__(self, name="user_mse", verbose=False):
+        Measurement.__init__(self, name, verbose)
+        
+    def measure(self, recommender):
+        """
+        Measures the MSE per user at the current timestep
+        Parameters
+        ------------
+            recommender: :class:`~models.recommender.BaseRecommender`
+                Model that inherits from
+                :class:`~models.recommender.BaseRecommender`.
+        """
+        f = recommender.predicted_scores.value - recommender.users.actual_user_scores.value
+        self.observe((diff**2).mean(axis=1))
