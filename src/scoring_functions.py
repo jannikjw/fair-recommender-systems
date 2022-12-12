@@ -78,7 +78,7 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
     gw = predicted_item_attributes.T / np.sum(predicted_item_attributes.T, axis=1)[:, np.newaxis]
 
     num_user = len(predicted_user_profiles)
-    recs = np.empty((num_user, slate_size))
+    recs = np.empty((num_user, slate_size), dtype=int)
     
     for user in range(len(probs_sorted)):
         agg_weight_per_cluster = np.zeros((len(gw[0]))) # matrix to keep track of weights of slate 

@@ -25,7 +25,7 @@ def run_experiment(config, measurements, train_timesteps=20, run_timesteps=50):
     model.add_metrics(*measurements)
 
     model.startup_and_train(timesteps=train_timesteps)
-    model.run(run_timesteps)
+    model.run(run_timesteps, repeated_items=False)
 
     return model
 
@@ -68,7 +68,7 @@ def main():
     n_clusters = int(args.Clusters) if args.Clusters else 50
     train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 10
     run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
-    drift = float(args.UserDrift) if args.UserDrift else 0.2
+    drift = float(args.UserDrift) if args.UserDrift else 0.05
     attention_exp = float(args.UserAttention) if args.UserAttention else 1.5
     pair_all = True if args.UserPairAll=='True' else False
     num_items_per_iter = 10
@@ -111,7 +111,8 @@ def main():
     print("Number of Iterations for NMF: ", max_iter)
     print("Number of Attributes: ", n_attrs)
     print("Number of Clusters: ", n_clusters)
-    print("Lambda: ", globals.ALPHA)
+    if requires_alpha: 
+        print("Lambda: ", globals.ALPHA)
     print("Number of items recommended at each timesteps: ", num_items_per_iter)
     print("Training Timesteps: ", train_timesteps)
     print("Running Timesteps: ", run_timesteps)

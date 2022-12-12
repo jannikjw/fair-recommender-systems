@@ -39,7 +39,7 @@ class NoveltyMetric(Measurement):
         
         # turn scores in probability distribution over items to ensure that all independent of the ranking function, the metric yields comparable values
         scores = recommender.predicted_scores.value
-        probs = scores / np.sum(scores, axis=1)[:, np.newaxis]
+        probs = scores / np.sum(scores, axis=1)[:, np.newaxis]     
         
         # get utility of each item given a state of users
         item_states = np.mean(probs, axis=0)
