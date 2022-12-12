@@ -50,27 +50,27 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Adding optional argument
-    parser.add_argument("-a", "--Attributes", help = "Number of attributes")
-    parser.add_argument("-c", "--Clusters", help = "Number of clusters")
-    parser.add_argument("-tt", "--TrainTimesteps", help = "Number of timesteps for training")
-    parser.add_argument("-rt", "--RunTimesteps", help = "Number of timesteps for simulation")
-    parser.add_argument("-p", "--Probabilistic", help = "Is model probabilistic?")
-    parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model")
-    parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function")
-    parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].")
-    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.")
-    parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.")
+    parser.add_argument("-a", "--Attributes", help = "Number of attributes", type=int, default=20)
+    parser.add_argument("-c", "--Clusters", help = "Number of clusters", type=int, default=50)
+    parser.add_argument("-tt", "--TrainTimesteps", help = "Number of timesteps for training", type=int, default=10)
+    parser.add_argument("-rt", "--RunTimesteps", help = "Number of timesteps for simulation", type=int, default=100)
+    parser.add_argument("-p", "--Probabilistic", help = "Is model probabilistic?", type=bool, default=False)
+    parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model", type=str,  default='')
+    parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
+    parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
+    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=0.8)
+    parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.", type=bool, default=False)
     
     # Read arguments from command line
     args = parser.parse_args()
 
-    n_attrs = int(args.Attributes) if args.Attributes else 20
-    n_clusters = int(args.Clusters) if args.Clusters else 50
-    train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 10
-    run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
-    drift = float(args.UserDrift) if args.UserDrift else 0.05
-    attention_exp = float(args.UserAttention) if args.UserAttention else 1.5
-    pair_all = True if args.UserPairAll=='True' else False
+    n_attrs = args.Attributes
+    n_clusters = args.Clusters
+    train_timesteps = args.TrainTimesteps
+    run_timesteps = args.RunTimesteps
+    drift = args.UserDrift
+    attention_exp = args.UserAttention
+    pair_all = args.UserPairAll=='True'
     num_items_per_iter = 10
     max_iter = 1000
 
@@ -113,6 +113,7 @@ def main():
     print("Number of Clusters: ", n_clusters)
     if requires_alpha: 
         print("Lambda: ", globals.ALPHA)
+    print("Probabilistic: ", args.Probabilistic)
     print("Number of items recommended at each timesteps: ", num_items_per_iter)
     print("Training Timesteps: ", train_timesteps)
     print("Running Timesteps: ", run_timesteps)
@@ -170,6 +171,7 @@ def main():
         DiversityMetric(), 
         NoveltyMetric(),
         RecallMeasurement(),
+        MeanNumberOfTopics(),
     ]
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
