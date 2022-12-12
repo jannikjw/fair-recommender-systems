@@ -9,6 +9,8 @@ import trecs.matrix_ops as mo
 import numpy as np
 from numpy.linalg import norm
 import scipy.sparse as sp
+from src.scoring_functions import content_fairness
+from pulp import *
 
 class BubbleBurster(ContentFiltering):
     """
@@ -105,14 +107,97 @@ class BubbleBurster(ContentFiltering):
         self.topic_interactions = interacted_topics
         old_topic_count = np.take_along_axis(self.user_topic_history, interacted_topics, axis=1)
         np.put_along_axis(self.user_topic_history, interacted_topics, old_topic_count+1, axis=1)
-        
-    # def next_k_myopic_scoring(predicted_user_profiles, predicted_item_attributes):
-    #     # alpha is equal to k, the number of items that we wish to exclude from recommending
-    #     alpha = 10 #ALPHA
-    #     pred_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
-    #     sorted_index_array = np.argsort(predicted_user_profiles)
-    #     rs = RandomState(42)
-    #     top_k_idxs = mo.top_k_indices(matrix=pred_scores, k=alpha, random_state=rs)
-    #     re_ranked_scores = pred_scores
-    #     np.put_along_axis(arr=re_ranked_scores, indices=top_k_idxs, values=0, axis=1)
-    #     return re_ranked_scores
+
+
+    def generate_recommendations(self, k=1, item_indices=None):
+        """
+        Generate recommendations for each user.
+
+        Parameters
+        -----------
+
+            k : int, default 1
+                Number of items to recommend.
+
+            item_indices : :obj:`numpy.ndarray`, optional
+                A matrix containing the indices of the items each user has not yet
+                interacted with. It is used to ensure that the user is presented
+                with items they have not already interacted with. If `None`,
+                then the user may be recommended items that they have already
+                interacted with.
+
+        Returns
+        ---------
+            Recommendations: :obj:`numpy.ndarray`
+        """
+        if item_indices is not None:
+            if item_indices.size < self.num_users:
+                raise ValueError(
+                    "At least one user has interacted with all items!"
+                    "To avoid this problem, you may want to allow repeated items."
+                )
+            if k > item_indices.shape[1]:
+                raise ValueError(
+                    f"There are not enough items left to recommend {k} items to each user."
+                )
+        if k == 0:
+            return np.array([]).reshape((self.num_users, 0)).astype(int)
+        # convert to dense because scipy does not yet support argsort - consider
+        # implementing our own fast sparse version? see
+        # https://stackoverflow.com/questions/31790819/scipy-sparse-csr
+        # -matrix-how-to-get-top-ten-values-and-indices
+        s_filtered = mo.to_dense(self.predicted_scores.filter_by_index(item_indices))
+        row = np.repeat(self.users.user_vector, item_indices.shape[1])
+        row = row.reshape((self.num_users, -1))
+        if self.probabilistic_recommendations:
+            permutation = s_filtered.argsort()
+            rec = item_indices[row, permutation]
+            # the recommended items will not be exactly determined by
+            # predicted score; instead, we will sample from the sorted list
+            # such that higher-preference items get more probability mass
+            num_items_unseen = rec.shape[1]  # number of items unseen per user
+            probabilities = np.logspace(0.0, num_items_unseen / 10.0, num=num_items_unseen, base=2)
+            probabilities = probabilities / probabilities.sum()
+            picks = np.random.choice(num_items_unseen, k, replace=False, p=probabilities)
+            return rec[:, picks]
+
+        elif self.score_fn == content_fairness:
+            permutation = s_filtered.argsort()
+            rec = item_indices[row, permutation]
+            num_items_unseen = rec.shape[1]  # number of items unseen per user
+            probabilities = np.logspace(0.0, num_items_unseen / 10.0, num=num_items_unseen, base=2)
+            probabilities = probabilities / probabilities.sum()
+
+            slate_size = k
+            upper_bound = 0.75
+            rec = np.empty((self.num_users, slate_size), dtype=int)
+            for i in range(self.num_users):
+                items = list(range(self.num_items))
+                sizes = dict(zip(items, [1] * len(items)))
+                weights = dict(zip(items, gw))
+                probs = dict(zip(items, probabilities[i]))
+
+                picked_vars = LpVariable.dicts("", items, lowBound=0, upBound=1, cat='Integer')
+
+                total_score = LpProblem("Fair_Recs_Problem", LpMaximize)
+                total_score += lpSum([probs[i] * picked_vars[i] for i in picked_vars])
+
+                total_score += lpSum([sizes[i] * picked_vars[i] for i in picked_vars]) == slate_size
+                total_score += lpSum([weights[i] * picked_vars[i] for i in picked_vars]) <= [upper_bound] * num_topics
+                total_score.solve()
+
+                rec[i] = [int(v.name[1:]) for v in total_score.variables() if v.varValue > 0]
+
+            return rec
+        else:
+            # returns top k indices, sorted from greatest to smallest
+            sort_top_k = mo.top_k_indices(s_filtered, k, self.random_state)
+            # convert top k indices into actual item IDs
+            rec = item_indices[row[:, :k], sort_top_k]
+            if self.is_verbose():
+                self.log(f"Item indices:\n{str(item_indices)}")
+                self.log(
+                    f"Top-k items ordered by preference (high to low) for each user:\n{str(rec)}"
+                )
+            print(rec.shape)
+            return rec

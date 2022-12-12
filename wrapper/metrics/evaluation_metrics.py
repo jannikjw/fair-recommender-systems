@@ -23,12 +23,12 @@ class NoveltyMetric(Measurement):
         RecSys ’21, page 85–95, New York, NY, USA, 2021. Association for Computing Machinery.
         
         Parameters
-        ------------
+        ------- -----
             recommender: :class:`~models.recommender.BaseRecommender`
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        if recommender.interactions.size == 0:
+        if recommender.interactions.size == 0 or np.sum(recommender.predicted_scores.value) == 0:
             self.observe(None) # no interactions yet
             return
                 
@@ -36,9 +36,14 @@ class NoveltyMetric(Measurement):
         item_counts = recommender.item_count
         item_counts[item_counts == 0] = 1
         items_self_info = (-1) * np.log(item_counts)
-        # multiply self information and item score
+        
+        # turn scores in probability distribution over items to ensure that all independent of the ranking function, the metric yields comparable values
+        scores = recommender.predicted_scores.value
+        probs = scores / np.sum(scores, axis=1)[:, np.newaxis]     
+        
         # get utility of each item given a state of users
-        item_states = np.mean(recommender.predicted_scores.value, axis=0)
+        item_states = np.mean(probs, axis=0)
+        
         # calculate novelty per item by multiplying self information and utility value
         item_novelties = items_self_info * item_states
         # form sum over all possible items/actions
@@ -242,6 +247,60 @@ class MeanNumberOfTopics(Measurement):
 
         self.observe(np.mean(recommender.user_topic_history.sum(axis=1)))
         
+        
+class RecallMeasurement(Measurement):
+    """
+    Measures the proportion of relevant items (i.e., those users interacted with) falling
+    within the top k ranked items shown.
+    Parameters
+    -----------
+        k: int
+            The rank at which recall should be evaluated.
+    Attributes
+    -----------
+        Inherited by Measurement: :class:`.Measurement`
+        name: str, default ``"recall_at_k"``
+            Name of the measurement component.
+    """
+
+    # Note: RecallMeasurement evalutes recall for the top-k (i.e., highest predicted value)
+    # items regardless of whether these items derive from the recommender or from randomly
+    # interleaved items. Currently, this metric will only be correct for
+    # cases in which users iteract with one item per timestep
+
+    def __init__(self, k=5, name="recall_at_k", verbose=False):
+        self.k = k
+
+        Measurement.__init__(self, name, verbose)
+
+    def measure(self, recommender):
+        """
+        Measures the proportion of relevant items (i.e., those users interacted with) falling
+        within the top k ranked items shown.
+        """
+        if self.k >= recommender.num_items_per_iter:
+            raise ValueError("k must be smaller than the number of items per iteration")
+
+        interactions = recommender.interactions
+        if interactions.size == 0:
+            self.observe(None)  # no interactions yet
+            return
+
+        else:
+            shown_item_scores = np.take(recommender.predicted_scores.value, recommender.items_shown)
+            shown_item_ranks = np.argsort(shown_item_scores, axis=1)
+            
+            top_k_items = np.empty((len(shown_item_ranks), self.k), dtype=int)
+            for i, u in enumerate(recommender.items_shown):
+                top_k_items[i] = np.take(u, shown_item_ranks[i, self.k:])
+            
+            recall = (
+                len(np.where(np.isin(recommender.interactions, top_k_items))[0]) / recommender.num_users
+            )
+
+        self.observe(recall)
+
+        
 class UserMSEMeasurement(Measurement):
     def __init__(self, name="user_mse", verbose=False):
         Measurement.__init__(self, name, verbose)
@@ -249,12 +308,11 @@ class UserMSEMeasurement(Measurement):
     def measure(self, recommender):
         """
         Measures the MSE per user at the current timestep
-        
         Parameters
         ------------
             recommender: :class:`~models.recommender.BaseRecommender`
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        diff = recommender.predicted_scores.value - recommender.users.actual_user_scores.value
+        f = recommender.predicted_scores.value - recommender.users.actual_user_scores.value
         self.observe((diff**2).mean(axis=1))
