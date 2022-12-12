@@ -162,14 +162,13 @@ class BubbleBurster(ContentFiltering):
             return rec[:, picks]
 
         elif self.score_fn == content_fairness:
-            permutation = s_filtered.argsort()
-            rec = item_indices[row, permutation]
-            num_items_unseen = rec.shape[1]  # number of items unseen per user
-            probabilities = np.logspace(0.0, num_items_unseen / 10.0, num=num_items_unseen, base=2)
-            probabilities = probabilities / probabilities.sum()
+            s_filtered = self.predicted_scores.filter_by_index(item_indices)
+            probabilities = (s_filtered.T / np.sum(s_filtered, axis=1)).T
 
+            gw = self.predicted_item_attributes.T / np.sum(self.predicted_item_attributes.T, axis=1)[:, np.newaxis]
             slate_size = k
             upper_bound = 0.75
+            num_topics = len(gw[0])
             rec = np.empty((self.num_users, slate_size), dtype=int)
             for i in range(self.num_users):
                 items = list(range(self.num_items))
@@ -184,7 +183,7 @@ class BubbleBurster(ContentFiltering):
 
                 total_score += lpSum([sizes[i] * picked_vars[i] for i in picked_vars]) == slate_size
                 total_score += lpSum([weights[i] * picked_vars[i] for i in picked_vars]) <= [upper_bound] * num_topics
-                total_score.solve()
+                total_score.solve(PULP_CBC_CMD(msg=False))
 
                 rec[i] = [int(v.name[1:]) for v in total_score.variables() if v.varValue > 0]
 
@@ -199,5 +198,4 @@ class BubbleBurster(ContentFiltering):
                 self.log(
                     f"Top-k items ordered by preference (high to low) for each user:\n{str(rec)}"
                 )
-            print(rec.shape)
             return rec

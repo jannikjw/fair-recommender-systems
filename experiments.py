@@ -58,7 +58,7 @@ def main():
     parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model", type=str,  default='')
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
     parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
-    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=0.8)
+    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=-0.8)
     parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.", type=bool, default=False)
     
     # Read arguments from command line
@@ -106,7 +106,7 @@ def main():
         model_name += '_prob'
         
     # Print model configuration
-    print("---------------------------Model Parameters---------------------------")
+    print("-------------------------Model Parameters-------------------------")
     print("Model name: ", model_name)
     print("Number of Iterations for NMF: ", max_iter)
     print("Number of Attributes: ", n_attrs)
@@ -119,7 +119,7 @@ def main():
     print("Running Timesteps: ", run_timesteps)
 
     # Get embeddings
-    print("----------------------Get Embeddings and Clusters----------------------")
+    print("-------------------Get Embeddings and Clusters-------------------")
     interaction_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
     user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
     
