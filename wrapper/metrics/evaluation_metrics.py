@@ -28,7 +28,7 @@ class NoveltyMetric(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        if recommender.interactions.size == 0:
+        if recommender.interactions.size == 0 or np.sum(recommender.predicted_scores.value) == 0:
             self.observe(None) # no interactions yet
             return
                 
@@ -294,10 +294,13 @@ class RecallMeasurement(Measurement):
         else:
             shown_item_scores = np.take(recommender.predicted_scores.value, recommender.items_shown)
             shown_item_ranks = np.argsort(shown_item_scores, axis=1)
-            top_k_items = np.take(recommender.items_shown, shown_item_ranks[:, self.k :])
+            
+            top_k_items = np.empty((len(shown_item_ranks), self.k), dtype=int)
+            for i, u in enumerate(recommender.items_shown):
+                top_k_items[i] = np.take(u, shown_item_ranks[i, self.k:])
+            
             recall = (
-                len(np.where(np.isin(recommender.interactions, top_k_items))[0])
-                / recommender.num_users
+                len(np.where(np.isin(recommender.interactions, top_k_items))[0]) / recommender.num_users
             )
 
         self.observe(recall)

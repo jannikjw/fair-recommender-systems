@@ -113,7 +113,7 @@ def collect_parameters(file):
 def load_measurements(path):
     dfs = []
     data = []
-    numeric_cols = ['trainTimesteps', 'runTimesteps', 'nAttrs', 'nClusters', 'Lambda']
+    numeric_cols = ['trainTimesteps', 'runTimesteps', 'nAttrs', 'nClusters', 'Drift', 'AttentionExp', 'PairAll', 'Lambda']
     columns = ['model_name'] + numeric_cols
     
     for file in os.listdir(path):
@@ -131,7 +131,7 @@ def load_measurements(path):
 
 def plot_measurements(dfs, parameters_df):
 
-    fig, ax = plt.subplots(2, 3, figsize=(15, 15))
+    fig, ax = plt.subplots(3, 3, figsize=(15, 15))
     fig.tight_layout(pad=5.0)
 
     # plot rec_similarity with timesteps on x axis
@@ -171,4 +171,9 @@ def plot_measurements(dfs, parameters_df):
 
     ax[1, 2].set_title('Diversity')
     ax[1, 2].set_ylabel('Diversity')
+
+    ax[2, 0].set_title('Recall')
+    ax[2, 0].set_ylabel('Recall')
+
+    
     fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))

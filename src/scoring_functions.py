@@ -7,16 +7,17 @@ import src.globals as globals
 def cosine_sim(predicted_user_profiles, predicted_item_attributes):
     # Reranking
     alpha = globals.ALPHA
+    
     predicted_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
-    # create a vector that contains the norms of all row vectors in predicted_user_profiles
     user_norms = norm(predicted_user_profiles, axis=1)
     item_norms = norm(predicted_item_attributes, axis=0)
 
-    # create a matrix that contains the outer product aAf user_norms and item_norms
+    # create a matrix that contains the outer product af user_norms and item_norms
     norms = np.outer(user_norms, item_norms)
+    if (norms == 0).any():
+        return predicted_scores
+
     cosine_similarities = predicted_scores / norms
-    cosine_similarities = np.nan_to_num(cosine_similarities)
-    # print max value of norms
     re_ranked_scores = predicted_scores - alpha * cosine_similarities
     # add minimum value of each row to all item scores to ensure scores are positive.
     re_ranked_scores += np.abs(np.min(re_ranked_scores, axis=1))[:, np.newaxis]
@@ -28,13 +29,12 @@ def cosine_sim(predicted_user_profiles, predicted_item_attributes):
 def entropy(predicted_user_profiles, predicted_item_attributes):
     # Reranking
     alpha = globals.ALPHA
+    
     predicted_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
-    
     entropy = - predicted_scores * np.log(predicted_scores + globals.EPS)
-    
     re_ranked_scores = predicted_scores + alpha * entropy
+    
     assert (re_ranked_scores >= 0).all(), "Some scores are negative."
-
     return re_ranked_scores
 
 
@@ -69,6 +69,8 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
     predicted_scores =  mo.inner_product(predicted_user_profiles, predicted_item_attributes)
 
     # 2. Calculate probabilities and sort them
+    if np.sum(predicted_scores) == 0:
+        return predicted_scores
     probs = (predicted_scores.T / np.sum(predicted_scores, axis=1)).T
     probs_sorted = np.flip(np.argsort(probs, axis=1), axis=1)
     

@@ -57,47 +57,28 @@ def main():
     parser.add_argument("-p", "--Probabilistic", help = "Is model probabilistic?")
     parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model")
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function")
-
+    parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].")
+    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.")
+    parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.")
+    
     # Read arguments from command line
     args = parser.parse_args()
-    print(args)
 
     n_attrs = int(args.Attributes) if args.Attributes else 20
     n_clusters = int(args.Clusters) if args.Clusters else 50
     train_timesteps = int(args.TrainTimesteps) if args.TrainTimesteps else 10
     run_timesteps = int(args.RunTimesteps) if args.RunTimesteps else 100
+    drift = float(args.UserDrift) if args.UserDrift else 0.2
+    attention_exp = float(args.UserAttention) if args.UserAttention else 1.5
+    pair_all = True if args.UserPairAll=='True' else False
     num_items_per_iter = 10
     max_iter = 1000
 
     globals.initialize()
     globals.ALPHA = float(args.Lambda) if args.Lambda else float(0.2)  
     alpha = globals.ALPHA
-
-    # print variables above
-    print("Number of Iterations for NMF: ", max_iter)
-    print("Number of Attributes: ", n_attrs)
-    print("Number of Clusters: ", n_clusters)
-    print("Lambda: ", globals.ALPHA)
-    print("Number of items recommended at each timesteps: ", num_items_per_iter)
-    print("Training Timesteps: ", train_timesteps)
-    print("Running Timesteps: ", run_timesteps)
-
-    interaction_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
-    user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
-    
-    item_cooccurrence_matrix = interaction_matrix.T @ interaction_matrix
-    item_topics = get_topic_clusters(item_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
-
-    user_cooccurrence_matrix = interaction_matrix @ interaction_matrix.T
-    user_groups = get_topic_clusters(user_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
-
-    
-    users = Users(actual_user_profiles=user_representation, repeat_interactions=False, attention_exp=1.5, verbose=True)
-    
+        
     config = {
-        'actual_user_representation': users,
-        'actual_item_representation': item_representation,
-        'item_topics': item_topics,
         'num_attributes': n_attrs,
         'num_items_per_iter': num_items_per_iter,
         'seed': 42,
@@ -106,7 +87,7 @@ def main():
 
     model_name='myopic'
     requires_alpha = False
-    
+        
     if args.ScoreFN:
         score_fn = args.ScoreFN
         if score_fn == 'cosine_sim':
@@ -124,28 +105,66 @@ def main():
         config['probabilistic_recommendations'] = True
         model_name += '_prob'
         
-    print(f'Model name: {model_name}')
+    # Print model configuration
+    print("---------------------------Model Parameters---------------------------")
+    print("Model name: ", model_name)
+    print("Number of Iterations for NMF: ", max_iter)
+    print("Number of Attributes: ", n_attrs)
+    print("Number of Clusters: ", n_clusters)
+    print("Lambda: ", globals.ALPHA)
+    print("Number of items recommended at each timesteps: ", num_items_per_iter)
+    print("Training Timesteps: ", train_timesteps)
+    print("Running Timesteps: ", run_timesteps)
 
-    # Create alll possible user pairs
-    # user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
+    # Get embeddings
+    print("----------------------Get Embeddings and Clusters----------------------")
+    interaction_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
+    user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
     
-    # Create only user pairs between users of different bubbles
-    num_users = len(user_representation)
-    user_pairs = []
-    for u_idx in range(num_users):
-        for v_idx in range(num_users):
-            if user_groups[u_idx] != user_groups[v_idx]:
-                user_pairs.append((u_idx, v_idx))
+    # Get item and user clusters
+    item_cooccurrence_matrix = interaction_matrix.T @ interaction_matrix
+    item_topics = get_topic_clusters(item_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
+
+    user_cooccurrence_matrix = interaction_matrix @ interaction_matrix.T
+    user_groups = get_topic_clusters(user_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
     
+    # Define users
+    users = Users(actual_user_profiles=user_representation, 
+                  repeat_interactions=False, 
+                  drift=drift,
+                  attention_exp=attention_exp)
     
+    config['actual_user_representation'] = users
+    config['actual_item_representation'] = item_representation
+    config['item_topics'] = item_topics
+
+    if pair_all:
+    # All possible user pairs
+        user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
+    else:
+        # Create user_pairs by pairing users only with others that are not in the same cluster
+        num_users = len(user_representation)
+        user_pairs = []
+        for u_idx in range(num_users):
+            for v_idx in range(num_users):
+                if user_groups[u_idx] != user_groups[v_idx]:
+                    user_pairs.append((u_idx, v_idx))
+    
+    print("-------------------------User Parameters-------------------------")
+    print("Drift: ", drift)
+    print("Attention Exponent: ", attention_exp)
+    print("Pair All: ", pair_all)
+    print("Number of user pairs: ", len(user_pairs))
+    
+    print("----------------------------Run Model----------------------------")
+    
+    # Define model
     measurements = [
         InteractionMeasurement(), 
         MSEMeasurement(),  
         InteractionSpread(), 
         InteractionSimilarity(pairs=user_pairs), 
         RecSimilarity(pairs=user_pairs), 
-        # TopicInteractionMeasurement(),
-        # MeanNumberOfTopics(),
         SerendipityMetric(), 
         DiversityMetric(), 
         NoveltyMetric(),
