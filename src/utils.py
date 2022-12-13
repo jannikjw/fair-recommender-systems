@@ -1,3 +1,8 @@
+import sys
+# caution: path[0] is reserved for script path (or '' in REPL)
+sys.path.insert(1, '../t-recs/')
+import trecs.matrix_ops as mo
+
 from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF
 import numpy as np
@@ -135,7 +140,9 @@ def user_topic_mapping(user_profiles, item_attributes, item_topics):
     topics = np.unique(item_topics)
     user_item_scores = mo.inner_product(user_profiles, item_attributes)
     user_topic_mapping = np.zeros((user_profiles.shape[0], topics.size))
+    # Iterating over topics
     for topic_i in topics:
+        # Obtain indices were topic
         topic_idx = np.where(item_topics == topic_i)[0]
         # topic_i_user_scores = np.mean(user_item_scores[:, topic_idx], axis=1)
         # user_topic_mapping[:,topic_i] = topic_i_user_scores
