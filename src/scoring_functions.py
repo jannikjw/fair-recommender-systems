@@ -4,6 +4,9 @@ import numpy as np
 from numpy.linalg import norm
 import src.globals as globals
 
+from numpy.random import RandomState
+rs = RandomState(42)
+
 def cosine_sim(predicted_user_profiles, predicted_item_attributes):
     # Reranking
     alpha = globals.ALPHA
@@ -105,3 +108,29 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
     # return predicted_scores_reranked
 
     return predicted_scores
+
+def top_k_reranking(predicted_user_profiles, predicted_item_attributes):
+    """
+    A score function that reverses the scores assigned for the number of items in the iteration,
+    such that: the item with the 10th highest score is assigned the score of the item with the first highest score, etc.
+        i.e., item_score[0] -> item_score[9] && item_score[9] -> item_score[0]
+    
+    Inputs:
+        - predicted_user_profiles
+        - pretedicted_item_attributes
+    Outputs:
+        - predicted_scores_reranked (Shape: U x I)
+    """
+    k = 10
+
+    pred_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
+    top_k_idxs = mo.top_k_indices(matrix=pred_scores, k=k, random_state=rs)
+
+    top_k_re_ranked_idxs = top_k_idxs[:,-1::-1]
+    top_k_re_ranked_scores = np.take_along_axis(pred_scores, top_k_idxs, axis=1)
+    top_k_re_ranked_scores = top_k_re_ranked_scores[:, -1::-1]
+
+    re_ranked_scores = np.copy(pred_scores)
+    np.put_along_axis(re_ranked_scores, top_k_idxs, top_k_re_ranked_scores, axis=1)
+    
+    return re_ranked_scores
