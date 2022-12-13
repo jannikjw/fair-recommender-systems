@@ -3,6 +3,11 @@ from sklearn.decomposition import NMF
 import numpy as np
 import pandas as pd
 import os
+
+import sys
+sys.path.insert(1, '../../t-recs/')
+import trecs.matrix_ops as mo
+
 random_state = np.random.seed(42)
 
 def get_topic_clusters(interaction_matrix, n_clusters:int=100, n_attrs:int=100, max_iter:int=100):
