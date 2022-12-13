@@ -199,5 +199,5 @@ class BubbleBurster(ContentFiltering):
                 self.log(
                     f"Top-k items ordered by preference (high to low) for each user:\n{str(rec)}"
                 )
-            print(rec.shape)
+            # print(rec.shape)
             return rec

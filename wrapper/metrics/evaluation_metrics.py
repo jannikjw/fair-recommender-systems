@@ -314,5 +314,5 @@ class UserMSEMeasurement(Measurement):
                 Model that inherits from
                 :class:`~models.recommender.BaseRecommender`.
         """
-        f = recommender.predicted_scores.value - recommender.users.actual_user_scores.value
+        diff = recommender.predicted_scores.value - recommender.users.actual_user_scores.value
         self.observe((diff**2).mean(axis=1))
