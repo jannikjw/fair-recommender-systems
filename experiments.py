@@ -9,7 +9,7 @@ from wrapper.models.bubble import BubbleBurster
 from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
 from src.scoring_functions import cosine_sim, entropy, content_fairness
 import src.globals as globals
-from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement
+from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement, UserMSEMeasurement
 
 # ignore all future warnings
 from warnings import simplefilter
@@ -140,23 +140,24 @@ def main():
     config['actual_item_representation'] = item_representation
     config['item_topics'] = item_topics
 
-    if pair_all:
-    # All possible user pairs
-        user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
-    else:
-        # Create user_pairs by pairing users only with others that are not in the same cluster
-        num_users = len(user_representation)
-        user_pairs = []
-        for u_idx in range(num_users):
-            for v_idx in range(num_users):
-                if user_groups[u_idx] != user_groups[v_idx]:
-                    user_pairs.append((u_idx, v_idx))
+    # Create user_pairs by pairing users only with others that are not in the same cluster
+    num_users = len(user_representation)
+    inter_cluster_user_pairs = []
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_groups[u_idx] != user_groups[v_idx]:
+                inter_cluster_user_pairs.append((u_idx, v_idx))
     
+    intra_cluster_user_pairs = []
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_groups[u_idx] == user_groups[v_idx]:
+                intra_cluster_user_pairs.append((u_idx, v_idx))
+
     print("-------------------------User Parameters-------------------------")
     print("Drift: ", drift)
     print("Attention Exponent: ", attention_exp)
-    print("Pair All: ", pair_all)
-    print("Number of user pairs: ", len(user_pairs))
+    # print("Pair All: ", pair_all)
     
     print("----------------------------Run Model----------------------------")
     
@@ -164,8 +165,12 @@ def main():
     measurements = [
         InteractionMeasurement(),
         MSEMeasurement(),  
-        InteractionSpread(),                InteractionSimilarity(pairs=user_pairs), 
-        RecSimilarity(pairs=user_pairs), 
+        InteractionSpread(),                
+        InteractionSimilarity(pairs=inter_cluster_user_pairs, name='inter_cluster_interaction_similarity'), 
+        InteractionSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_interaction_similarity'), 
+        RecSimilarity(pairs=inter_cluster_user_pairs, name='inter_cluster_rec_similarity'), 
+        RecSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_rec_similarity'), 
+        UserMSEMeasurement(),
         SerendipityMetric(), 
         DiversityMetric(), 
         NoveltyMetric(),

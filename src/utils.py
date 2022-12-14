@@ -126,10 +126,8 @@ def user_topic_mapping(user_profiles, item_attributes, item_topics):
             Histogram of the number of interactions aggregated by items at the given timestep.
     """
     
-    assert ((user_profiles.shape[1] == item_attributes.shape[0]), 
-            "No. attributes must be consistent for predicted_user_profiles and predicted_item_attributes")
-    assert ((item_topics.shape == (item_attributes.shape[1],)),
-            "item_topics must have shape=(#items,)")
+    assert user_profiles.shape[1] == (item_attributes.shape[0], ), "No. attributes must be consistent for predicted_user_profiles and predicted_item_attributes"
+    assert item_topics.shape == (item_attributes.shape[1],), "item_topics must have shape=(#items,)"
     
     topics = np.unique(item_topics)
     user_item_scores = mo.inner_product(user_profiles, item_attributes)
