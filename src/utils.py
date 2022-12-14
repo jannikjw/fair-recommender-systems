@@ -177,3 +177,20 @@ def plot_measurements(dfs, parameters_df):
 
     
     fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
+    
+def analyze_user_mse(df_user_mse):
+    """
+    df_user_mse: pandas.DataFrame
+        Each column should represent a timestep and each row is the MSE that corresponds to a given user.
+        Additional column `clusterID` must be present which stores the cluster number that each user is assigned to.
+    """
+    
+    cluster_mse = df_user_mse.groupby(['clusterID']).mean()
+    mse_diff = (cluster_mse - cluster_mse.mean()).abs().sum(axis=1)
+    worst_user_cluster = mse_diff.idxmax()
+    mean_mse = cluster_mse.mean()
+    
+    plt.plot(mean_mse, label = "average MSE")
+    plt.plot(cluster_mse.loc[worst_user_cluster], label = f"cluster {worst_user_cluster} MSE")
+    plt.legend()
+    plt.legend()
