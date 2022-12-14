@@ -193,11 +193,8 @@ def analyze_user_mse(df_user_mse, train_timesteps=0):
     """
     
     cluster_mse = df_user_mse.iloc[:, train_timesteps:].groupby(['clusterID']).mean()
-    mse_diff = (cluster_mse - cluster_mse.mean()).abs().sum(axis=1)
-    worst_user_cluster = mse_diff.idxmax()
-    mean_mse = cluster_mse.mean()
+    worst_user_cluster = cluster_mse.mean(axis=1).idxmax()
     
-    plt.plot(mean_mse, label = "average MSE")
+    plt.plot(cluster_mse.mean(), label = "average MSE")
     plt.plot(cluster_mse.loc[worst_user_cluster], label = f"cluster {worst_user_cluster} MSE")
-    plt.legend()
     plt.legend()
