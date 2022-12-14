@@ -24,7 +24,9 @@ def run_experiment(config, measurements, train_timesteps=20, run_timesteps=50):
     # Add Metrics
     model.add_metrics(*measurements)
 
+    print('Training:')
     model.startup_and_train(timesteps=train_timesteps)
+    print('Simulating:')
     model.run(run_timesteps, repeated_items=False)
 
     return model
@@ -41,6 +43,8 @@ def create_folder_structure():
         os.mkdir('artefacts/representations')
     if not os.path.exists('artefacts/models/'):
         os.mkdir('artefacts/models')
+    if not os.path.exists('artefacts/final_preferences/'):
+        os.mkdir('artefacts/final_preferences')
 
 
 def main():
@@ -180,13 +184,24 @@ def main():
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
+    # Determine file name based on parameter values
+    parameters = f'{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp_{pair_all}PairAll'
+    if requires_alpha:
+        parameters += f'_{alpha}Lambda'
+    
+    # Save actual user preferences
+    final_preferences_dir = 'artefacts/final_preferences/'
+    file_prefix = f'{model_name}_final_preferences_'
+    final_preferences_path = final_preferences_dir + file_prefix + parameters + '.npy'
+    
+    print(model.users.actual_user_profiles.value)
+    np.save(final_preferences_path, model.users.actual_user_profiles.value, allow_pickle=True)
+    
     # Save measurements
     measurements_dir = f'artefacts/measurements/'
-    file_name = f'{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp_{pair_all}PairAll'
-    measurements_path = measurements_dir + file_name
-    if requires_alpha:
-        measurements_path += f'_{alpha}Lambda'
-    measurements_path += '.csv'
+    file_prefix = f'{model_name}_measurements_'
+        
+    measurements_path = measurements_dir + file_prefix + parameters + '.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)
     measurements_df.to_csv(measurements_path)
     print('Measurements saved.')
