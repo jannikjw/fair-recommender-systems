@@ -6,7 +6,7 @@ from trecs.metrics import MSEMeasurement, InteractionSpread, InteractionSpread, 
 from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
-from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
+from src.utils import get_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
 from src.scoring_functions import cosine_sim, entropy, content_fairness
 import src.globals as globals
 from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement, UserMSEMeasurement
@@ -128,11 +128,9 @@ def main():
     user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
     
     # Get item and user clusters
-    item_cooccurrence_matrix = interaction_matrix.T @ interaction_matrix
-    item_topics = get_topic_clusters(item_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
+    item_cluster_ids, item_cluster_centers = get_clusters(item_representation.T, name='item', n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)
+    user_cluster_ids, user_cluster_centers = get_clusters(user_representation, name='user', n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)
 
-    user_cooccurrence_matrix = interaction_matrix @ interaction_matrix.T
-    user_groups = get_topic_clusters(user_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
     
     # Define users
     users = Users(actual_user_profiles=user_representation, 
@@ -142,20 +140,20 @@ def main():
     
     config['actual_user_representation'] = users
     config['actual_item_representation'] = item_representation
-    config['item_topics'] = item_topics
+    config['item_topics'] = item_cluster_ids
 
     # Create user_pairs by pairing users only with others that are not in the same cluster
     num_users = len(user_representation)
     inter_cluster_user_pairs = []
     for u_idx in range(num_users):
         for v_idx in range(num_users):
-            if user_groups[u_idx] != user_groups[v_idx]:
+            if user_cluster_ids[u_idx] != user_cluster_ids[v_idx]:
                 inter_cluster_user_pairs.append((u_idx, v_idx))
     
     intra_cluster_user_pairs = []
     for u_idx in range(num_users):
         for v_idx in range(num_users):
-            if user_groups[u_idx] == user_groups[v_idx]:
+            if user_cluster_ids[u_idx] == user_cluster_ids[v_idx]:
                 intra_cluster_user_pairs.append((u_idx, v_idx))
 
     print("-------------------------User Parameters-------------------------")
@@ -193,8 +191,6 @@ def main():
     final_preferences_dir = 'artefacts/final_preferences/'
     file_prefix = f'{model_name}_final_preferences_'
     final_preferences_path = final_preferences_dir + file_prefix + parameters + '.npy'
-    
-    print(model.users.actual_user_profiles.value)
     np.save(final_preferences_path, model.users.actual_user_profiles.value, allow_pickle=True)
     
     # Save measurements
