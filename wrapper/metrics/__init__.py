@@ -3,4 +3,7 @@ from .evaluation_metrics import (
     NoveltyMetric,
     SerendipityMetric,
     DiversityMetric,
+    TopicInteractionMeasurement,
+    MeanNumberOfTopics,
+    UserMSEMeasurement,
 )
