@@ -24,7 +24,7 @@ def get_topic_clusters(cooccurence_matrix, n_clusters:int=100, n_attrs:int=100, 
         print('Calculating clusters...')
         # Matrix factorize co_occurence_matrix to get embeddings
         nmf_cooc = NMF(n_components=n_attrs, max_iter=max_iter)
-        W_topics = nmf_cooc.fit_transform(co_occurence_matrix)
+        W_topics = nmf_cooc.fit_transform(cooccurence_matrix)
 
         # cluster W_topics
         cluster_ids = KMeans(n_clusters=n_clusters, max_iter=max_iter, random_state=random_state).fit_predict(W_topics)
