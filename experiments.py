@@ -51,14 +51,14 @@ def main():
 
     # Adding optional argument
     parser.add_argument("-a", "--Attributes", help = "Number of attributes", type=int, default=20)
-    parser.add_argument("-c", "--Clusters", help = "Number of clusters", type=int, default=50)
+    parser.add_argument("-c", "--Clusters", help = "Number of clusters", type=int, default=25)
     parser.add_argument("-tt", "--TrainTimesteps", help = "Number of timesteps for training", type=int, default=10)
     parser.add_argument("-rt", "--RunTimesteps", help = "Number of timesteps for simulation", type=int, default=100)
     parser.add_argument("-p", "--Probabilistic", help = "Is model probabilistic?", type=bool, default=False)
     parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model", type=str,  default='')
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
     parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
-    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=0.8)
+    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=-0.8)
     parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.", type=bool, default=False)
     
     # Read arguments from command line
@@ -106,7 +106,7 @@ def main():
         model_name += '_prob'
         
     # Print model configuration
-    print("---------------------------Model Parameters---------------------------")
+    print("-------------------------Model Parameters-------------------------")
     print("Model name: ", model_name)
     print("Number of Iterations for NMF: ", max_iter)
     print("Number of Attributes: ", n_attrs)
@@ -119,7 +119,7 @@ def main():
     print("Running Timesteps: ", run_timesteps)
 
     # Get embeddings
-    print("----------------------Get Embeddings and Clusters----------------------")
+    print("-------------------Get Embeddings and Clusters-------------------")
     interaction_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
     user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
     
@@ -162,10 +162,9 @@ def main():
     
     # Define model
     measurements = [
-        InteractionMeasurement(), 
+        InteractionMeasurement(),
         MSEMeasurement(),  
-        InteractionSpread(), 
-        InteractionSimilarity(pairs=user_pairs), 
+        InteractionSpread(),                InteractionSimilarity(pairs=user_pairs), 
         RecSimilarity(pairs=user_pairs), 
         SerendipityMetric(), 
         DiversityMetric(), 
@@ -177,7 +176,9 @@ def main():
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
     # Save measurements
-    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters'
+    measurements_dir = f'artefacts/measurements/'
+    file_name = f'{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp_{pair_all}PairAll'
+    measurements_path = measurements_dir + file_name
     if requires_alpha:
         measurements_path += f'_{alpha}Lambda'
     measurements_path += '.csv'
