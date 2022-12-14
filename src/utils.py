@@ -92,42 +92,36 @@ def load_or_create_measurements_df(model, model_name, train_timesteps, file_path
     return df
 
 
-def collect_parameters(file):
-    numeric_cols = ['trainTimesteps', 'runTimesteps', 'nAttrs', 'nClusters', 'Lambda']
-    columns = ['model_name'] + numeric_cols
-    
+def collect_parameters(file, columns):   
     file_name = file[:-4]
     params = file_name.split('_')
     params_start_id = params.index('measurements')
-    model_name = '_'.join(params[:params_start_id])
-    row = []
-    row.append(model_name)
+    row = {}
+    row['model_name'] = '_'.join(params[:params_start_id])
     for col in columns:
         for param in params:
             if param.endswith(col):
                 value = param[:param.find(col)]
-                row.append(value)
+                row[col] = value
     return row
 
 
-def load_measurements(path):
+def load_measurements(path, columns):
     dfs = []
     data = []
-    numeric_cols = ['trainTimesteps', 'runTimesteps', 'nAttrs', 'nClusters', 'Drift', 'AttentionExp', 'PairAll', 'Lambda']
-    columns = ['model_name'] + numeric_cols
     
     for file in os.listdir(path):
         if file.endswith('.csv'):
-            row = collect_parameters(file)
+            row = collect_parameters(file, columns)
             data.append(row)
             df = pd.read_csv(path + '/' + file)
             dfs.append(df)
     
-    parameters_df = pd.DataFrame(data, 
-                                 columns=columns)                                
+    parameters_df = pd.DataFrame().append(data)
     for col in numeric_cols:
         parameters_df[col] = pd.to_numeric(parameters_df[col])
     return dfs, parameters_df
+
 
 def plot_measurements(dfs, parameters_df):
 

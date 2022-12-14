@@ -51,7 +51,7 @@ def main():
 
     # Adding optional argument
     parser.add_argument("-a", "--Attributes", help = "Number of attributes", type=int, default=20)
-    parser.add_argument("-c", "--Clusters", help = "Number of clusters", type=int, default=50)
+    parser.add_argument("-c", "--Clusters", help = "Number of clusters", type=int, default=25)
     parser.add_argument("-tt", "--TrainTimesteps", help = "Number of timesteps for training", type=int, default=10)
     parser.add_argument("-rt", "--RunTimesteps", help = "Number of timesteps for simulation", type=int, default=100)
     parser.add_argument("-p", "--Probabilistic", help = "Is model probabilistic?", type=bool, default=False)
@@ -162,10 +162,9 @@ def main():
     
     # Define model
     measurements = [
-        InteractionMeasurement(), 
+        InteractionMeasurement(),
         MSEMeasurement(),  
-        InteractionSpread(), 
-        InteractionSimilarity(pairs=user_pairs), 
+        InteractionSpread(),                InteractionSimilarity(pairs=user_pairs), 
         RecSimilarity(pairs=user_pairs), 
         SerendipityMetric(), 
         DiversityMetric(), 
@@ -177,7 +176,9 @@ def main():
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
     # Save measurements
-    measurements_path = f'artefacts/measurements/{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters'
+    measurements_dir = f'artefacts/measurements/'
+    file_name = f'{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp_{pair_all}PairAll'
+    measurements_path = measurements_dir + file_name
     if requires_alpha:
         measurements_path += f'_{alpha}Lambda'
     measurements_path += '.csv'

@@ -164,26 +164,30 @@ class BubbleBurster(ContentFiltering):
         elif self.score_fn == content_fairness:
             s_filtered = self.predicted_scores.filter_by_index(item_indices)
             probabilities = (s_filtered.T / np.sum(s_filtered, axis=1)).T
-
             gw = self.predicted_item_attributes.T / np.sum(self.predicted_item_attributes.T, axis=1)[:, np.newaxis]
             slate_size = k
             upper_bound = 0.75
             num_topics = len(gw[0])
             rec = np.empty((self.num_users, slate_size), dtype=int)
-            for i in range(self.num_users):
-                items = list(range(self.num_items))
-                sizes = dict(zip(items, [1] * len(items)))
-                weights = dict(zip(items, gw))
+            
+            # LP Problem
+            items = list(range(self.num_items))
+            sizes = dict(zip(items, [1] * len(items)))
+            weights = dict(zip(items, gw))
+            picked_vars = LpVariable.dicts("", items, lowBound=0, upBound=1, cat='Integer')
+            print("GW: ", gw.shape)
+            print("picked_vars: ", picked_vars)
+            
+            assert probs[len(items)-1], print('Lenght of probs: ', probs)
+            
+            for i in range(len(probabilities)):
                 probs = dict(zip(items, probabilities[i]))
-
-                picked_vars = LpVariable.dicts("", items, lowBound=0, upBound=1, cat='Integer')
 
                 total_score = LpProblem("Fair_Recs_Problem", LpMaximize)
                 total_score += lpSum([probs[i] * picked_vars[i] for i in picked_vars])
-
                 total_score += lpSum([sizes[i] * picked_vars[i] for i in picked_vars]) == slate_size
                 total_score += lpSum([weights[i] * picked_vars[i] for i in picked_vars]) <= [upper_bound] * num_topics
-                total_score.solve(PULP_CBC_CMD(msg=False))
+                total_score.solve()
 
                 rec[i] = [int(v.name[1:]) for v in total_score.variables() if v.varValue > 0]
 
