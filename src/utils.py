@@ -8,6 +8,7 @@ from sklearn.decomposition import NMF
 import numpy as np
 import pandas as pd
 import os
+import pickle
 import trecs.matrix_ops as mo
 import matplotlib.pyplot as plt
 import src.globals as globals
@@ -17,11 +18,11 @@ simplefilter(action='ignore', category=FutureWarning)
 
 random_state = np.random.seed(42)
 
-def get_topic_clusters(cooccurence_matrix, n_clusters:int=100, n_attrs:int=100, max_iter:int=100):
+def get_clusters(embeddings, name, n_clusters:int=25, n_attrs:int=20, max_iter:int=100):
     """
     Creates clusters of movies based on their genre.
     Inputs:
-        binary_ratings_matrix: a binary matrix of users and movies
+        embeddings: Matrix of embeddings, e.g. user representation
         n_attrs: number of attributes to use in NMF
         nmf_solver: solver to use in NMF
     Outputs:
@@ -29,23 +30,23 @@ def get_topic_clusters(cooccurence_matrix, n_clusters:int=100, n_attrs:int=100, 
     """
     # Create topic clusters
     #create co-occurence matrix from binary_interaction_matrix
-    file_path = f'artefacts/topic_clusters/topic_clusters_{n_clusters}clusters_{n_attrs}attributes_{max_iter}iters.npy'
+    file_path = f'artefacts/topic_clusters/{name}_clusters_{n_clusters}clusters_{n_attrs}attributes_{max_iter}iters.pkl'
     if not os.path.exists(file_path):
         print('Calculating clusters...')
-        # Matrix factorize co_occurence_matrix to get embeddings
-        nmf_cooc = NMF(n_components=n_attrs, max_iter=max_iter)
-        W_topics = nmf_cooc.fit_transform(cooccurence_matrix)
 
-        # cluster W_topics
-        cluster_ids = KMeans(n_clusters=n_clusters, max_iter=max_iter, random_state=random_state).fit_predict(W_topics)
-        np.save(file_path, cluster_ids)
+        kmeans = KMeans(n_clusters=n_clusters, max_iter=max_iter, random_state=random_state).fit(embeddings)
+        pickle.dump(kmeans, open(file_path, 'wb'))
 
         print('Calculated clusters.')
-    else:
-        cluster_ids = np.load(file_path)
+    else:         
+        # load the model from disk
+        kmeans = pickle.load(open(file_path, 'rb'))
         print('Loaded clusters.')
 
-    return cluster_ids
+    cluster_ids = kmeans.predict(embeddings)
+    centroids = kmeans.cluster_centers_
+    return cluster_ids, centroids
+
 
 
 def create_embeddings(binary_matrix, n_attrs:int=100, max_iter:int=100):
@@ -74,7 +75,6 @@ def create_embeddings(binary_matrix, n_attrs:int=100, max_iter:int=100):
         item_representation = np.load(item_representation_file_path)
         print('Loaded embeddings.')
 
-
     return user_representation, item_representation
 
 
@@ -95,12 +95,13 @@ def load_or_create_measurements_df(model, model_name, train_timesteps, file_path
         measurements = model.get_measurements()
         df = pd.DataFrame(measurements)
         df['state'] = 'train' # makes it easier to later understand which part was training
-        df.loc[measurements_df['timesteps'] > train_timesteps, 'state'] = 'run'
+        df.loc[df['timesteps'] > train_timesteps, 'state'] = 'run'
         df['model'] = model_name
     
     return df
 
-def user_topic_mapping(user_profiles, item_attributes, item_topics):
+
+def user_topic_mapping(user_profiles, item_cluster_centers):
     """
     This function maps users to topics. This mapping can be for either:
         -> actual_user_topic_mapping:
@@ -128,26 +129,14 @@ def user_topic_mapping(user_profiles, item_attributes, item_topics):
     ---------
         :obj:`numpy.ndarray`, with dims=(#users, |set(item_topics)|)
             Histogram of the number of interactions aggregated by items at the given timestep.
-    """
-    
-    assert ((user_profiles.shape[1] == item_attributes.shape[0]), 
-            "No. attributes must be consistent for predicted_user_profiles and predicted_item_attributes")
-    assert ((item_topics.shape == (item_attributes.shape[1],)),
-            "item_topics must have shape=(#items,)")
-    
-    topics = np.unique(item_topics)
-    user_item_scores = mo.inner_product(user_profiles, item_attributes)
-    user_topic_mapping = np.zeros((user_profiles.shape[0], topics.size))
-    # Iterating over topics
-    for topic_i in topics:
-        # Obtain indices were topic
-        topic_idx = np.where(item_topics == topic_i)[0]
-        # topic_i_user_scores = np.mean(user_item_scores[:, topic_idx], axis=1)
-        # user_topic_mapping[:,topic_i] = topic_i_user_scores
-        # ^ Condensed:
-        user_topic_mapping[:,topic_i] = np.mean(user_item_scores[:, topic_idx], axis=1)
-        
-    return user_topic_mapping
+    """   
+    euclidean_distance_matrix = np.empty((len(user_profiles), len(item_cluster_centers)), dtype=float)
+    for i, user in enumerate(user_profiles):
+        for j, item_cluster in enumerate(item_cluster_centers):
+            euclidean_distance_matrix[i, j] = np.linalg.norm(user - item_cluster)
+
+    user_to_item_cluster_assignment = np.argmin(euclidean_distance_matrix, axis=1)
+    return user_to_item_cluster_assignment
 
 
 def collect_parameters(file, columns):   
@@ -164,9 +153,10 @@ def collect_parameters(file, columns):
     return row
 
 
-def load_measurements(path, columns):
+def load_measurements(path, numeric_columns):
     dfs = []
     data = []
+    columns = ['model_name'] + numeric_columns
     
     for file in os.listdir(path):
         if file.endswith('.csv'):
@@ -176,59 +166,34 @@ def load_measurements(path, columns):
             dfs.append(df)
     
     parameters_df = pd.DataFrame().append(data)
-    for col in numeric_cols:
+    for col in numeric_columns:
         parameters_df[col] = pd.to_numeric(parameters_df[col])
     return dfs, parameters_df
 
 
-def plot_measurements(dfs, parameters_df):
+def create_parameter_string(naming_config):
+    parameters_str = ''
+    for key, value in naming_config.items():
+        parameters_str += f'_{value}{key}'
 
-    fig, ax = plt.subplots(3, 3, figsize=(15, 15))
-    fig.tight_layout(pad=5.0)
-
-    # plot rec_similarity with timesteps on x axis
-    legend_lines, legend_names = [], []
-    for i, df in enumerate(dfs):
-        ts = df['timesteps']
-        name = parameters_df.loc[i, 'model_name']
-        if not np.isnan(parameters_df.loc[i, 'Lambda']):
-             name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})" 
-        legend_names.append(name)
-        ax[0,0].plot(ts, df['mse'], label=name)
-        ax[0,1].plot(ts, df['rec_similarity'], label=name)
-        ax[0,2].plot(ts, df['interaction_similarity'], label=name)
-        ax[1,0].plot(ts, df['serendipity_metric'], label=name)
-        ax[1,1].plot(ts, df['novelty_metric'], label=name)
-        line, = ax[1,2].plot(ts, df['diversity_metric'], label=name)
-        legend_lines.append(line)
-
-    for a in ax:
-        for b in a:
-            b.set_xlabel('Timestep')
-
-    ax[0, 0].set_title('Mean Squared Error')
-    ax[0, 0].set_ylabel('MSE')
+        
+def create_cluster_user_pairs(user_cluster_ids):
+    inter_cluster_user_pairs = []
+    num_users = len(user_cluster_ids)
     
-    ax[0, 1].set_title('Recommendation similarity')
-    ax[0, 1].set_ylabel('Similarity')
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_cluster_ids[u_idx] != user_cluster_ids[v_idx]:
+                inter_cluster_user_pairs.append((u_idx, v_idx))
     
-    ax[0, 2].set_title('Interaction Similarity')
-    ax[0, 2].set_ylabel('Jaccard Similarity')
-    
-    ax[1, 0].set_title('Serendipity')
-    ax[1, 0].set_ylabel('Serendipity')
-    
-    ax[1, 1].set_title('Novelty')
-    ax[1, 1].set_ylabel('Novelty')
+    intra_cluster_user_pairs = []
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_cluster_ids[u_idx] == user_cluster_ids[v_idx]:
+                intra_cluster_user_pairs.append((u_idx, v_idx))
 
-    ax[1, 2].set_title('Diversity')
-    ax[1, 2].set_ylabel('Diversity')
+    return inter_cluster_user_pairs, intra_cluster_user_pairs
 
-    ax[2, 0].set_title('Recall')
-    ax[2, 0].set_ylabel('Recall')
-
-    
-    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
     
 def analyze_user_mse(df_user_mse, train_timesteps=0):
     """
@@ -246,3 +211,4 @@ def analyze_user_mse(df_user_mse, train_timesteps=0):
     plt.plot(cluster_mse.mean(), label = "average MSE")
     plt.plot(cluster_mse.loc[worst_user_cluster], label = f"cluster {worst_user_cluster} MSE")
     plt.legend()
+    

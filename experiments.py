@@ -6,10 +6,10 @@ from trecs.metrics import MSEMeasurement, InteractionSpread, InteractionSpread, 
 from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
-from src.utils import get_topic_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
+from src.utils import *
 from src.scoring_functions import cosine_sim, entropy, content_fairness
 import src.globals as globals
-from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement
+from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement, UserMSEMeasurement
 
 # ignore all future warnings
 from warnings import simplefilter
@@ -24,7 +24,9 @@ def run_experiment(config, measurements, train_timesteps=20, run_timesteps=50):
     # Add Metrics
     model.add_metrics(*measurements)
 
+    print('Training:')
     model.startup_and_train(timesteps=train_timesteps)
+    print('Simulating:')
     model.run(run_timesteps, repeated_items=False)
 
     return model
@@ -41,6 +43,8 @@ def create_folder_structure():
         os.mkdir('artefacts/representations')
     if not os.path.exists('artefacts/models/'):
         os.mkdir('artefacts/models')
+    if not os.path.exists('artefacts/final_preferences/'):
+        os.mkdir('artefacts/final_preferences')
 
 
 def main():
@@ -59,7 +63,6 @@ def main():
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
     parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
     parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=-0.8)
-    parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.", type=bool, default=False)
     
     # Read arguments from command line
     args = parser.parse_args()
@@ -70,7 +73,6 @@ def main():
     run_timesteps = args.RunTimesteps
     drift = args.UserDrift
     attention_exp = args.UserAttention
-    pair_all = args.UserPairAll=='True'
     num_items_per_iter = 10
     max_iter = 1000
 
@@ -101,7 +103,7 @@ def main():
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
-    if args.Probabilistic == 'True':
+    if args.Probabilistic:
         config['probabilistic_recommendations'] = True
         model_name += '_prob'
         
@@ -124,11 +126,9 @@ def main():
     user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
     
     # Get item and user clusters
-    item_cooccurrence_matrix = interaction_matrix.T @ interaction_matrix
-    item_topics = get_topic_clusters(item_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
+    item_cluster_ids, item_cluster_centers = get_clusters(item_representation.T, name='item', n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)
+    user_cluster_ids, user_cluster_centers = get_clusters(user_representation, name='user', n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)
 
-    user_cooccurrence_matrix = interaction_matrix @ interaction_matrix.T
-    user_groups = get_topic_clusters(user_cooccurrence_matrix, n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)  
     
     # Define users
     users = Users(actual_user_profiles=user_representation, 
@@ -138,50 +138,51 @@ def main():
     
     config['actual_user_representation'] = users
     config['actual_item_representation'] = item_representation
-    config['item_topics'] = item_topics
+    config['item_topics'] = item_cluster_ids
 
-    if pair_all:
-    # All possible user pairs
-        user_pairs = [(u_idx, v_idx) for u_idx in range(len(user_representation)) for v_idx in range(len(user_representation))]
-    else:
-        # Create user_pairs by pairing users only with others that are not in the same cluster
-        num_users = len(user_representation)
-        user_pairs = []
-        for u_idx in range(num_users):
-            for v_idx in range(num_users):
-                if user_groups[u_idx] != user_groups[v_idx]:
-                    user_pairs.append((u_idx, v_idx))
-    
+    # Create user_pairs by pairing users only with others that are not in the same cluster
+    inter_cluster_user_pairs, intra_cluster_user_pairs = create_cluster_user_pairs(user_cluster_ids)
+
     print("-------------------------User Parameters-------------------------")
     print("Drift: ", drift)
     print("Attention Exponent: ", attention_exp)
-    print("Pair All: ", pair_all)
-    print("Number of user pairs: ", len(user_pairs))
     
     print("----------------------------Run Model----------------------------")
     
     # Define model
     measurements = [
         InteractionMeasurement(),
-        MSEMeasurement(),  
-        InteractionSpread(),                InteractionSimilarity(pairs=user_pairs), 
-        RecSimilarity(pairs=user_pairs), 
-        SerendipityMetric(), 
-        DiversityMetric(), 
-        NoveltyMetric(),
+        MSEMeasurement(),
+        UserMSEMeasurement(),
         RecallMeasurement(),
-        MeanNumberOfTopics(),
+        InteractionSpread(),                
+        InteractionSimilarity(pairs=inter_cluster_user_pairs, name='inter_cluster_interaction_similarity'), 
+        InteractionSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_interaction_similarity'), 
+        DiversityMetric(),         
+        RecSimilarity(pairs=inter_cluster_user_pairs, name='inter_cluster_rec_similarity'), 
+        RecSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_rec_similarity'), 
+        SerendipityMetric(), 
+        NoveltyMetric(),
     ]
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
+    # Determine file name based on parameter values
+    parameters = f'_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp'
+    if requires_alpha:
+        parameters += f'_{alpha}Lambda'
+    
+    # Save actual user preferences
+    final_preferences_dir = 'artefacts/final_preferences/'
+    file_prefix = f'{model_name}_final_preferences'
+    final_preferences_path = final_preferences_dir + file_prefix + parameters + '.npy'
+    np.save(final_preferences_path, model.users.actual_user_profiles.value, allow_pickle=True)
+    
     # Save measurements
     measurements_dir = f'artefacts/measurements/'
-    file_name = f'{model_name}_measurements_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp_{pair_all}PairAll'
-    measurements_path = measurements_dir + file_name
-    if requires_alpha:
-        measurements_path += f'_{alpha}Lambda'
-    measurements_path += '.csv'
+    file_prefix = f'{model_name}_measurements'
+        
+    measurements_path = measurements_dir + file_prefix + parameters + '.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)
     measurements_df.to_csv(measurements_path)
     print('Measurements saved.')
