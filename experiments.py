@@ -6,7 +6,7 @@ from trecs.metrics import MSEMeasurement, InteractionSpread, InteractionSpread, 
 from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
-from src.utils import get_clusters, create_embeddings, load_and_process_movielens, load_or_create_measurements_df
+from src.utils import *
 from src.scoring_functions import cosine_sim, entropy, content_fairness
 import src.globals as globals
 from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement, UserMSEMeasurement
@@ -63,7 +63,6 @@ def main():
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
     parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
     parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=-0.8)
-    parser.add_argument("-upa", "--UserPairAll", help = "Boolean to decide whether pairwise measures between all possible user permutations or only between different topics.", type=bool, default=False)
     
     # Read arguments from command line
     args = parser.parse_args()
@@ -74,7 +73,6 @@ def main():
     run_timesteps = args.RunTimesteps
     drift = args.UserDrift
     attention_exp = args.UserAttention
-    pair_all = args.UserPairAll=='True'
     num_items_per_iter = 10
     max_iter = 1000
 
@@ -143,53 +141,41 @@ def main():
     config['item_topics'] = item_cluster_ids
 
     # Create user_pairs by pairing users only with others that are not in the same cluster
-    num_users = len(user_representation)
-    inter_cluster_user_pairs = []
-    for u_idx in range(num_users):
-        for v_idx in range(num_users):
-            if user_cluster_ids[u_idx] != user_cluster_ids[v_idx]:
-                inter_cluster_user_pairs.append((u_idx, v_idx))
-    
-    intra_cluster_user_pairs = []
-    for u_idx in range(num_users):
-        for v_idx in range(num_users):
-            if user_cluster_ids[u_idx] == user_cluster_ids[v_idx]:
-                intra_cluster_user_pairs.append((u_idx, v_idx))
+    inter_cluster_user_pairs, intra_cluster_user_pairs = create_cluster_user_pairs(user_cluster_ids)
 
     print("-------------------------User Parameters-------------------------")
     print("Drift: ", drift)
     print("Attention Exponent: ", attention_exp)
-    # print("Pair All: ", pair_all)
     
     print("----------------------------Run Model----------------------------")
     
     # Define model
     measurements = [
         InteractionMeasurement(),
-        MSEMeasurement(),  
+        MSEMeasurement(),
+        UserMSEMeasurement(),
+        RecallMeasurement(),
         InteractionSpread(),                
         InteractionSimilarity(pairs=inter_cluster_user_pairs, name='inter_cluster_interaction_similarity'), 
         InteractionSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_interaction_similarity'), 
+        DiversityMetric(),         
         RecSimilarity(pairs=inter_cluster_user_pairs, name='inter_cluster_rec_similarity'), 
         RecSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_rec_similarity'), 
-        UserMSEMeasurement(),
         SerendipityMetric(), 
-        DiversityMetric(), 
         NoveltyMetric(),
-        RecallMeasurement(),
         MeanNumberOfTopics(),
     ]
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
     
     # Determine file name based on parameter values
-    parameters = f'{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp_{pair_all}PairAll'
+    parameters = f'_{train_timesteps}trainTimesteps_{run_timesteps}runTimesteps_{n_attrs}nAttrs_{n_clusters}nClusters_{drift}Drift_{attention_exp}AttentionExp'
     if requires_alpha:
         parameters += f'_{alpha}Lambda'
     
     # Save actual user preferences
     final_preferences_dir = 'artefacts/final_preferences/'
-    file_prefix = f'{model_name}_final_preferences_'
+    file_prefix = f'{model_name}_final_preferences'
     final_preferences_path = final_preferences_dir + file_prefix + parameters + '.npy'
     np.save(final_preferences_path, model.users.actual_user_profiles.value, allow_pickle=True)
     

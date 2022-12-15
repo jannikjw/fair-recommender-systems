@@ -9,39 +9,79 @@ import numpy as np
 import pandas as pd
 
 
-def plot_measurements(measurements_df):
+def plot_measurements(dfs, parameters_df):
+    fig, ax = plt.subplots(4, 3, figsize=(15, 15))
+    fig.tight_layout(pad=5.0)
 
-    fig, ax = plt.subplots(2, 3, figsize=(15, 6))
-    fig.tight_layout(h_pad=3)
+    # plot rec_similarity with timesteps on x axis
+    legend_lines, legend_names = [], []
+    for i, df in enumerate(dfs):
+        ts = df['timesteps']
+        name = parameters_df.loc[i, 'model_name']
+        if not np.isnan(parameters_df.loc[i, 'Lambda']):
+             name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})" 
+        legend_names.append(name)
+        
+        line, = ax[0,0].plot(ts, df['mse'], label=name)
+        # ax[0,1].plot(ts, df['user_mse'], label=name)
+        ax[0,2].plot(ts, df['recall_at_k'], label=name)
+        
+        ax[1,0].plot(ts, df['interaction_spread'], label=name)
+        ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name)
+        ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name)
 
-    measurements_df['rec_similarity'].plot(ax=ax[0, 0])
-    measurements_df['interaction_similarity'].plot(ax=ax[0, 1])
-    measurements_df['mean_num_topics'].plot(ax=ax[0, 2])
-    measurements_df['serendipity_metric'].plot(ax=ax[1, 0])
-    measurements_df['novelty_metric'].plot(ax=ax[1, 1])
-    measurements_df['diversity_metric'].plot(ax=ax[1, 2])
+        ax[2,0].plot(ts, df['diversity_metric'], label=name)
+        ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name)
+        ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name)
+
+        ax[3,0].plot(ts, df['serendipity_metric'], label=name)
+        ax[3,1].plot(ts, df['novelty_metric'], label=name)
+        ax[3,2].plot(ts, df['mean_num_topics'], label=name)
+        
+        legend_lines.append(line)
 
     for a in ax:
         for b in a:
             b.set_xlabel('Timestep')
 
-    ax[0, 0].set_title('Recommendation similarity')
-    ax[0, 0].set_ylabel('Similarity')
+    ax[0, 0].set_title('Mean Squared Error')
+    ax[0, 0].set_ylabel('MSE')
+    
+    ax[0, 1].set_title('User Mean Squared Error')
+    ax[0, 1].set_ylabel('MSE')
+    ax[0, 1].set_xlabel('User ID')
+    
+    ax[0, 2].set_title('Recall')
+    ax[0, 2].set_ylabel('Recall')
+    
+    ax[1, 0].set_title('Interaction Spread')
+    ax[1, 0].set_ylabel('Jaccard Similarity')
+    
+    ax[1, 1].set_title('Inter Cluster Interaction Similarity')
+    ax[1, 1].set_ylabel('Jaccard Similarity')
+    
+    ax[1, 2].set_title('Intra Cluster Interaction Similarity')
+    ax[1, 2].set_ylabel('Jaccard Similarity')
+    
+    ax[2, 0].set_title('Diversity')
+    ax[2, 0].set_ylabel('Diversity')
+    
+    ax[2, 1].set_title('Inter Cluster Recommendation similarity')
+    ax[2, 1].set_ylabel('Jaccard Similarity')
+    
+    ax[2, 2].set_title('Intra Cluster Recommendation similarity')
+    ax[2, 2].set_ylabel('Jaccard Similarity')
+    
+    ax[3, 0].set_title('Serendipity')
+    ax[3, 0].set_ylabel('Serendipity')
+    
+    ax[3, 1].set_title('Novelty')
+    ax[3, 1].set_ylabel('Novelty')
 
-    ax[0, 1].set_title('Interaction Similarity')
-    ax[0, 1].set_ylabel('Jaccard Similarity')
-
-    ax[0, 2].set_title('Mean Number of Topics per User')
-    ax[0, 2].set_ylabel('Mean Number of Topics per User')
-
-    ax[1, 0].set_title('Serendipity')
-    ax[1, 0].set_ylabel('Serendipity')
-
-    ax[1, 1].set_title('Novelty')
-    ax[1, 1].set_ylabel('Novelty')
-
-    ax[1, 2].set_title('Diversity')
-    ax[1, 2].set_ylabel('Diversity')
+    ax[3, 2].set_title('Mean Number of Topics Interacted per User')
+    ax[3, 2].set_ylabel('Mean Number of Topics Interacted per User')
+    
+    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
 
 
 def apply_tsne_2d(x, y, perplexity=50):
@@ -112,7 +152,7 @@ def plot_clusters(df, axis, palette):
             axis.fill(interp_x, interp_y, '--', c=palette[i], alpha=0.2)
 
 
-def plot_tsne(df, perplexity n_clusters):
+def plot_tsne(df, perplexity, n_clusters):
     """
     Plots tsne with convex hulls.
     

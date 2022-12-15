@@ -149,9 +149,10 @@ def collect_parameters(file, columns):
     return row
 
 
-def load_measurements(path, columns):
+def load_measurements(path, numeric_columns):
     dfs = []
     data = []
+    columns = ['model_name'] + numeric_columns
     
     for file in os.listdir(path):
         if file.endswith('.csv'):
@@ -161,54 +162,30 @@ def load_measurements(path, columns):
             dfs.append(df)
     
     parameters_df = pd.DataFrame().append(data)
-    for col in numeric_cols:
+    for col in numeric_columns:
         parameters_df[col] = pd.to_numeric(parameters_df[col])
     return dfs, parameters_df
 
 
-def plot_measurements(dfs, parameters_df):
-    fig, ax = plt.subplots(3, 3, figsize=(15, 15))
-    fig.tight_layout(pad=5.0)
+def create_parameter_string(naming_config):
+    parameters_str = ''
+    for key, value in naming_config.items():
+        parameters_str += f'_{value}{key}'
 
-    # plot rec_similarity with timesteps on x axis
-    legend_lines, legend_names = [], []
-    for i, df in enumerate(dfs):
-        ts = df['timesteps']
-        name = parameters_df.loc[i, 'model_name']
-        if not np.isnan(parameters_df.loc[i, 'Lambda']):
-             name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})" 
-        legend_names.append(name)
-        ax[0,0].plot(ts, df['mse'], label=name)
-        ax[0,1].plot(ts, df['rec_similarity'], label=name)
-        ax[0,2].plot(ts, df['interaction_similarity'], label=name)
-        ax[1,0].plot(ts, df['serendipity_metric'], label=name)
-        ax[1,1].plot(ts, df['novelty_metric'], label=name)
-        line, = ax[1,2].plot(ts, df['diversity_metric'], label=name)
-        legend_lines.append(line)
+        
+def create_cluster_user_pairs(user_cluster_ids):
+    inter_cluster_user_pairs = []
+    num_users = len(user_cluster_ids)
+    
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_cluster_ids[u_idx] != user_cluster_ids[v_idx]:
+                inter_cluster_user_pairs.append((u_idx, v_idx))
+    
+    intra_cluster_user_pairs = []
+    for u_idx in range(num_users):
+        for v_idx in range(num_users):
+            if user_cluster_ids[u_idx] == user_cluster_ids[v_idx]:
+                intra_cluster_user_pairs.append((u_idx, v_idx))
 
-    for a in ax:
-        for b in a:
-            b.set_xlabel('Timestep')
-
-    ax[0, 0].set_title('Mean Squared Error')
-    ax[0, 0].set_ylabel('MSE')
-    
-    ax[0, 1].set_title('Recommendation similarity')
-    ax[0, 1].set_ylabel('Similarity')
-    
-    ax[0, 2].set_title('Interaction Similarity')
-    ax[0, 2].set_ylabel('Jaccard Similarity')
-    
-    ax[1, 0].set_title('Serendipity')
-    ax[1, 0].set_ylabel('Serendipity')
-    
-    ax[1, 1].set_title('Novelty')
-    ax[1, 1].set_ylabel('Novelty')
-
-    ax[1, 2].set_title('Diversity')
-    ax[1, 2].set_ylabel('Diversity')
-
-    ax[2, 0].set_title('Recall')
-    ax[2, 0].set_ylabel('Recall')
-    
-    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
+    return inter_cluster_user_pairs, intra_cluster_user_pairs
