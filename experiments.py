@@ -163,7 +163,6 @@ def main():
         RecSimilarity(pairs=intra_cluster_user_pairs, name='intra_cluster_rec_similarity'), 
         SerendipityMetric(), 
         NoveltyMetric(),
-        MeanNumberOfTopics(),
     ]
 
     model = run_experiment(config, measurements, train_timesteps=train_timesteps, run_timesteps=run_timesteps)
@@ -181,7 +180,7 @@ def main():
     
     # Save measurements
     measurements_dir = f'artefacts/measurements/'
-    file_prefix = f'{model_name}_measurements_'
+    file_prefix = f'{model_name}_measurements'
         
     measurements_path = measurements_dir + file_prefix + parameters + '.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)

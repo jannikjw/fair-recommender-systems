@@ -25,18 +25,27 @@ def plot_measurements(dfs, parameters_df):
         line, = ax[0,0].plot(ts, df['mse'], label=name)
         # ax[0,1].plot(ts, df['user_mse'], label=name)
         ax[0,2].plot(ts, df['recall_at_k'], label=name)
-        
-        ax[1,0].plot(ts, df['interaction_spread'], label=name)
-        ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name)
-        ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name)
+    
+        if 'interaction_spread' in df.columns:
+            ax[1,0].plot(ts, df['interaction_spread'], label=name)
+        if 'inter_cluster_interaction_similarity' in df.columns:
+            ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name)
+        if 'intra_cluster_interaction_similarity' in df.columns:
+            ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name)
 
-        ax[2,0].plot(ts, df['diversity_metric'], label=name)
-        ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name)
-        ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name)
+        if 'diversity_metric' in df.columns:
+            ax[2,0].plot(ts, df['diversity_metric'], label=name)
+        if 'inter_cluster_rec_similarity' in df.columns:
+            ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name)
+        if 'intra_cluster_rec_similarity' in df.columns:
+            ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name)
 
-        ax[3,0].plot(ts, df['serendipity_metric'], label=name)
-        ax[3,1].plot(ts, df['novelty_metric'], label=name)
-        ax[3,2].plot(ts, df['mean_num_topics'], label=name)
+        if 'serendipity_metric' in df.columns:
+            ax[3,0].plot(ts, df['serendipity_metric'], label=name)
+        if 'novelty_metric' in df.columns:
+            ax[3,1].plot(ts, df['novelty_metric'], label=name)
+        if 'mean_num_topics' in df.columns:
+            ax[3,2].plot(ts, df['mean_num_topics'], label=name)
         
         legend_lines.append(line)
 

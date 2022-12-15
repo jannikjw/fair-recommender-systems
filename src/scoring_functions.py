@@ -20,7 +20,8 @@ def cosine_sim(predicted_user_profiles, predicted_item_attributes):
     cosine_similarities = predicted_scores / norms
     re_ranked_scores = predicted_scores - alpha * cosine_similarities
     # add minimum value of each row to all item scores to ensure scores are positive.
-    re_ranked_scores += np.abs(np.min(re_ranked_scores, axis=1))[:, np.newaxis]
+    # re_ranked_scores += np.abs(np.min(re_ranked_scores, axis=1))[:, np.newaxis]
+    re_ranked_scores = np.exp(re_ranked_scores)
 
     assert (re_ranked_scores >= 0).all(), "Some scores are negative."
     return re_ranked_scores
