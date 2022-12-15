@@ -112,7 +112,7 @@ def plot_clusters(df, axis, palette):
             axis.fill(interp_x, interp_y, '--', c=palette[i], alpha=0.2)
 
 
-def plot_tsne(df, perplexity):
+def plot_tsne(df, perplexity n_clusters):
     """
     Plots tsne with convex hulls.
     
@@ -127,7 +127,7 @@ def plot_tsne(df, perplexity):
     # plot tsne
     fig, axs = plt.subplots(1, 1, figsize=(15, 5))
 
-    palette = sns.color_palette(cc.glasbey, n_colors=50)
+    palette = sns.color_palette(cc.glasbey, n_colors=n_clusters)
 
     plot_clusters(df, axs, palette)
 
@@ -136,7 +136,7 @@ def plot_tsne(df, perplexity):
     plt.show()
 
 
-def plot_tsne_comparison(df1, df2):
+def plot_tsne_comparison(df1, df2, n_clusters):
     """
     Plots two tsne plots (before and after simulation) with convex hulls.
     
@@ -149,7 +149,7 @@ def plot_tsne_comparison(df1, df2):
     """
     fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 
-    palette = sns.color_palette(cc.glasbey, n_colors=50)
+    palette = sns.color_palette(cc.glasbey, n_colors=n_clusters)
 
     plot_clusters(df1, axs[0], palette)
     axs[0].set_title('Before Simulation')

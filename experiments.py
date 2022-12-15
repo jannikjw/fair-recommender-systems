@@ -105,7 +105,7 @@ def main():
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
-    if args.Probabilistic == 'True':
+    if args.Probabilistic:
         config['probabilistic_recommendations'] = True
         model_name += '_prob'
         
