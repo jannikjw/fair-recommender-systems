@@ -11,6 +11,10 @@ import os
 import trecs.matrix_ops as mo
 import matplotlib.pyplot as plt
 import src.globals as globals
+from warnings import simplefilter
+# ignore all future warnings
+simplefilter(action='ignore', category=FutureWarning)
+
 random_state = np.random.seed(42)
 
 def get_topic_clusters(cooccurence_matrix, n_clusters:int=100, n_attrs:int=100, max_iter:int=100):
@@ -225,3 +229,20 @@ def plot_measurements(dfs, parameters_df):
 
     
     fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
+    
+def analyze_user_mse(df_user_mse, train_timesteps=0):
+    """
+    df_user_mse: pandas.DataFrame
+        Each column should represent a timestep and each row is the MSE that corresponds to a given user.
+        Additional column `clusterID` must be present which stores the cluster number that each user is assigned to.
+    train_timesteps: int
+        The number of train_timesteps that are present in the dataframe. 
+        If train_timesteps != 0, then the columns 0:train_timesteps will be excluded from the calculations.
+    """
+    
+    cluster_mse = df_user_mse.iloc[:, train_timesteps:].groupby(['clusterID']).mean()
+    worst_user_cluster = cluster_mse.mean(axis=1).idxmax()
+    
+    plt.plot(cluster_mse.mean(), label = "average MSE")
+    plt.plot(cluster_mse.loc[worst_user_cluster], label = f"cluster {worst_user_cluster} MSE")
+    plt.legend()
