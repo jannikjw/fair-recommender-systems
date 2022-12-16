@@ -27,25 +27,25 @@ def plot_measurements(dfs, parameters_df):
         ax[0,2].plot(ts, df['recall_at_k'], label=name)
     
         if 'interaction_spread' in df.columns:
-            ax[1,0].plot(ts, df['interaction_spread'], label=name)
+            ax[1,0].plot(ts, df['interaction_spread'], label=name, alpha=0.5)
         if 'inter_cluster_interaction_similarity' in df.columns:
-            ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name)
+            ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name, alpha=0.5)
         if 'intra_cluster_interaction_similarity' in df.columns:
-            ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name)
+            ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name, alpha=0.5)
 
         if 'diversity_metric' in df.columns:
-            ax[2,0].plot(ts, df['diversity_metric'], label=name)
+            ax[2,0].plot(ts, df['diversity_metric'], label=name, alpha=0.5)
         if 'inter_cluster_rec_similarity' in df.columns:
-            ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name)
+            ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name, alpha=0.5)
         if 'intra_cluster_rec_similarity' in df.columns:
-            ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name)
+            ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name, alpha=0.5)
 
         if 'serendipity_metric' in df.columns:
-            ax[3,0].plot(ts, df['serendipity_metric'], label=name)
+            ax[3,0].plot(ts, df['serendipity_metric'], label=name, alpha=0.5)
         if 'novelty_metric' in df.columns:
-            ax[3,1].plot(ts, df['novelty_metric'], label=name)
+            ax[3,1].plot(ts, df['novelty_metric'], label=name, alpha=0.5)
         if 'mean_num_topics' in df.columns:
-            ax[3,2].plot(ts, df['mean_num_topics'], label=name)
+            ax[3,2].plot(ts, df['mean_num_topics'], label=name, alpha=0.5)
         
         legend_lines.append(line)
 
