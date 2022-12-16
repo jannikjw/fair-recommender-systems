@@ -7,7 +7,7 @@ from trecs.components import Users
 
 from wrapper.models.bubble import BubbleBurster
 from src.utils import *
-from src.scoring_functions import cosine_sim, entropy, content_fairness
+from src.scoring_functions import cosine_sim, entropy, content_fairness, top_k_reranking
 import src.globals as globals
 from wrapper.metrics.evaluation_metrics import SerendipityMetric, DiversityMetric, NoveltyMetric, TopicInteractionMeasurement, MeanNumberOfTopics, RecallMeasurement, UserMSEMeasurement
 
@@ -62,7 +62,7 @@ def main():
     parser.add_argument("-s", "--ScoreFN", help = "Name of the score function of the model", type=str,  default='')
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
     parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
-    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values >=1.", type=float, default=-0.8)
+    parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values [-1, 0].", type=float, default=-0.8)
     
     # Read arguments from command line
     args = parser.parse_args()
@@ -100,6 +100,8 @@ def main():
             requires_alpha = True
         elif score_fn == 'content_fairness':
             config['score_fn'] = content_fairness        
+        elif score_fn == 'top_k_reranking':
+            config['score_fn'] = top_k_reranking   
         else:
             raise Exception('Given score function does not exist.')
         model_name = args.ScoreFN
@@ -124,11 +126,11 @@ def main():
     print("-------------------Get Embeddings and Clusters-------------------")
     interaction_matrix = load_and_process_movielens(file_path='data/ml-100k/u.data')
     user_representation, item_representation = create_embeddings(interaction_matrix, n_attrs=n_attrs, max_iter=max_iter)
-    
+            
+    # user_representation = user_representation[:100, :]
     # Get item and user clusters
     item_cluster_ids, item_cluster_centers = get_clusters(item_representation.T, name='item', n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)
     user_cluster_ids, user_cluster_centers = get_clusters(user_representation, name='user', n_clusters=n_clusters, n_attrs=n_attrs, max_iter=max_iter)
-
     
     # Define users
     users = Users(actual_user_profiles=user_representation, 
@@ -140,8 +142,10 @@ def main():
     config['actual_item_representation'] = item_representation
     config['item_topics'] = item_cluster_ids
 
+    user_item_cluster_mapping = user_topic_mapping(user_representation, item_cluster_centers) # TODO: Remove?
+    experiment_name = 'users_by_topic'
     # Create user_pairs by pairing users only with others that are not in the same cluster
-    inter_cluster_user_pairs, intra_cluster_user_pairs = create_cluster_user_pairs(user_cluster_ids)
+    inter_cluster_user_pairs, intra_cluster_user_pairs = create_cluster_user_pairs(user_item_cluster_mapping)
 
     print("-------------------------User Parameters-------------------------")
     print("Drift: ", drift)
@@ -174,13 +178,15 @@ def main():
     
     # Save actual user preferences
     final_preferences_dir = 'artefacts/final_preferences/'
-    file_prefix = f'{model_name}_final_preferences'
+    file_prefix = f'{model_name}_{experiment_name}_final_preferences'
     final_preferences_path = final_preferences_dir + file_prefix + parameters + '.npy'
     np.save(final_preferences_path, model.users.actual_user_profiles.value, allow_pickle=True)
+    print('User preferences saved.')
+
     
     # Save measurements
     measurements_dir = f'artefacts/measurements/'
-    file_prefix = f'{model_name}_measurements'
+    file_prefix = f'{model_name}_{experiment_name}_measurements'
         
     measurements_path = measurements_dir + file_prefix + parameters + '.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)

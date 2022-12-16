@@ -162,32 +162,39 @@ class BubbleBurster(ContentFiltering):
             return rec[:, picks]
 
         elif self.score_fn == content_fairness:
-            s_filtered = self.predicted_scores.filter_by_index(item_indices)
-            probabilities = (s_filtered.T / np.sum(s_filtered, axis=1)).T
+            # s_filtered = self.predicted_scores.filter_by_index(item_indices)
+            # probabilities = (s_filtered.T / np.sum(s_filtered, axis=1)).T
+            
+            permutation = s_filtered.argsort()
+            rec = item_indices[row, permutation]
+            # the recommended items will not be exactly determined by
+            # predicted score; instead, we will sample from the sorted list
+            # such that higher-preference items get more probability mass
+            num_items_unseen = rec.shape[1]  # number of items unseen per user
+            probabilities = np.logspace(0.0, num_items_unseen / 10.0, num=num_items_unseen, base=2)
+            probabilities = probabilities / probabilities.sum()
+            # probabilities = (self.predicted_scores.value.T / np.sum(self.predicted_scores.value, axis=1)).T #TODO: Should be filtered
+
             gw = self.predicted_item_attributes.T / np.sum(self.predicted_item_attributes.T, axis=1)[:, np.newaxis]
+
             slate_size = k
-            upper_bound = 0.75
+            upper_bound = 0.5
             num_topics = len(gw[0])
-            rec = np.empty((self.num_users, slate_size), dtype=int)
+            # rec = np.empty((self.num_users, slate_size), dtype=int)
             
             # LP Problem
-            items = list(range(self.num_items))
+            items = list(range(probabilities.shape[1]))
             sizes = dict(zip(items, [1] * len(items)))
             weights = dict(zip(items, gw))
             picked_vars = LpVariable.dicts("", items, lowBound=0, upBound=1, cat='Integer')
-            print("GW: ", gw.shape)
-            print("picked_vars: ", picked_vars)
-            
-            assert probs[len(items)-1], print('Lenght of probs: ', probs)
-            
+
             for i in range(len(probabilities)):
                 probs = dict(zip(items, probabilities[i]))
-
                 total_score = LpProblem("Fair_Recs_Problem", LpMaximize)
                 total_score += lpSum([probs[i] * picked_vars[i] for i in picked_vars])
                 total_score += lpSum([sizes[i] * picked_vars[i] for i in picked_vars]) == slate_size
                 total_score += lpSum([weights[i] * picked_vars[i] for i in picked_vars]) <= [upper_bound] * num_topics
-                total_score.solve()
+                total_score.solve(PULP_CBC_CMD(msg=False))
 
                 rec[i] = [int(v.name[1:]) for v in total_score.variables() if v.varValue > 0]
 
