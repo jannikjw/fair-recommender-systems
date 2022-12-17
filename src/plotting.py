@@ -19,34 +19,46 @@ def plot_measurements(dfs, parameters_df):
         ts = df['timesteps']
         name = parameters_df.loc[i, 'model_name']
         if not np.isnan(parameters_df.loc[i, 'Lambda']):
-             name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})" 
+            name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})"
         legend_names.append(name)
-        
-        line, = ax[0,0].plot(ts, df['mse'], label=name)
+
+        line, = ax[0, 0].plot(ts, df['mse'], label=name)
         # ax[0,1].plot(ts, df['user_mse'], label=name)
-        ax[0,2].plot(ts, df['recall_at_k'], label=name)
-    
+        ax[0, 2].plot(ts, df['recall_at_k'], label=name)
+
         if 'interaction_spread' in df.columns:
-            ax[1,0].plot(ts, df['interaction_spread'], label=name, alpha=0.5)
+            ax[1, 0].plot(ts, df['interaction_spread'], label=name, alpha=0.5)
         if 'inter_cluster_interaction_similarity' in df.columns:
-            ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name, alpha=0.5)
+            ax[1, 1].plot(ts,
+                          df['inter_cluster_interaction_similarity'],
+                          label=name,
+                          alpha=0.5)
         if 'intra_cluster_interaction_similarity' in df.columns:
-            ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name, alpha=0.5)
+            ax[1, 2].plot(ts,
+                          df['intra_cluster_interaction_similarity'],
+                          label=name,
+                          alpha=0.5)
 
         if 'diversity_metric' in df.columns:
-            ax[2,0].plot(ts, df['diversity_metric'], label=name, alpha=0.5)
+            ax[2, 0].plot(ts, df['diversity_metric'], label=name, alpha=0.5)
         if 'inter_cluster_rec_similarity' in df.columns:
-            ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name, alpha=0.5)
+            ax[2, 1].plot(ts,
+                          df['inter_cluster_rec_similarity'],
+                          label=name,
+                          alpha=0.5)
         if 'intra_cluster_rec_similarity' in df.columns:
-            ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name, alpha=0.5)
+            ax[2, 2].plot(ts,
+                          df['intra_cluster_rec_similarity'],
+                          label=name,
+                          alpha=0.5)
 
         if 'serendipity_metric' in df.columns:
-            ax[3,0].plot(ts, df['serendipity_metric'], label=name, alpha=0.5)
+            ax[3, 0].plot(ts, df['serendipity_metric'], label=name, alpha=0.5)
         if 'novelty_metric' in df.columns:
-            ax[3,1].plot(ts, df['novelty_metric'], label=name, alpha=0.5)
+            ax[3, 1].plot(ts, df['novelty_metric'], label=name, alpha=0.5)
         if 'mean_num_topics' in df.columns:
-            ax[3,2].plot(ts, df['mean_num_topics'], label=name, alpha=0.5)
-        
+            ax[3, 2].plot(ts, df['mean_num_topics'], label=name, alpha=0.5)
+
         legend_lines.append(line)
 
     for a in ax:
@@ -55,42 +67,48 @@ def plot_measurements(dfs, parameters_df):
 
     ax[0, 0].set_title('Mean Squared Error')
     ax[0, 0].set_ylabel('MSE')
-    
+
     ax[0, 1].set_title('User Mean Squared Error')
     ax[0, 1].set_ylabel('MSE')
     ax[0, 1].set_xlabel('User ID')
-    
+
     ax[0, 2].set_title('Recall')
     ax[0, 2].set_ylabel('Recall')
-    
+
     ax[1, 0].set_title('Interaction Spread')
     ax[1, 0].set_ylabel('Jaccard Similarity')
-    
+
     ax[1, 1].set_title('Inter Cluster Interaction Similarity')
     ax[1, 1].set_ylabel('Jaccard Similarity')
-    
+
     ax[1, 2].set_title('Intra Cluster Interaction Similarity')
     ax[1, 2].set_ylabel('Jaccard Similarity')
-    
+
     ax[2, 0].set_title('Diversity')
     ax[2, 0].set_ylabel('Diversity')
-    
+
     ax[2, 1].set_title('Inter Cluster Recommendation similarity')
     ax[2, 1].set_ylabel('Jaccard Similarity')
-    
+
     ax[2, 2].set_title('Intra Cluster Recommendation similarity')
     ax[2, 2].set_ylabel('Jaccard Similarity')
-    
+
     ax[3, 0].set_title('Serendipity')
     ax[3, 0].set_ylabel('Serendipity')
-    
+
     ax[3, 1].set_title('Novelty')
     ax[3, 1].set_ylabel('Novelty')
 
     ax[3, 2].set_title('Mean Number of Topics Interacted per User')
     ax[3, 2].set_ylabel('Mean Number of Topics Interacted per User')
-    
-    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
+
+    fig.legend(legend_lines,
+               legend_names,
+               loc='upper center',
+               fontsize=14,
+               frameon=False,
+               ncol=5,
+               bbox_to_anchor=(.5, 1.05))
 
 
 def apply_tsne_2d(x, y, perplexity=50):
@@ -116,27 +134,33 @@ def apply_tsne_2d(x, y, perplexity=50):
     return df
 
 
-def plot_clusters(df, axis, palette):
+def plot_clusters(df, axis, palette, previously_seen=[]):
+    diff_set = set(df.y.unique()) - set(previously_seen)
+
+    hue_order = list(set(previously_seen)) + list(diff_set)
+    
+    
     sns.scatterplot(x="comp-1",
                     y="comp-2",
                     hue=df.y.tolist(),
+                    hue_order=hue_order,
                     ax=axis,
                     palette=palette,
                     alpha=1,
                     data=df).set(title="")
 
     # Label points
-    for ind in df.index:
-        axis.text(x=df['comp-1'][ind],
-                  y=df['comp-2'][ind],
-                  s=df['y'][ind],
-                  color='black',
-                  fontsize=6,
-                  horizontalalignment='center',
-                  verticalalignment='center')
+    # for ind in df.index:
+    #     axis.text(x=df['comp-1'][ind],
+    #               y=df['comp-2'][ind],
+    #               s=df['y'][ind],
+    #               color='black',
+    #               fontsize=6,
+    #               horizontalalignment='center',
+    #               verticalalignment='center')
 
     # Create hulls
-    for i in df.y.unique():
+    for i in hue_order:
         points = df[df.y == i][['comp-1', 'comp-2']].values
         if len(points) >= 3:
             # get convex hull
@@ -202,7 +226,7 @@ def plot_tsne_comparison(df1, df2, n_clusters):
 
     plot_clusters(df1, axs[0], palette)
     axs[0].set_title('Before Simulation')
-    plot_clusters(df2, axs[1], palette)
+    plot_clusters(df2, axs[1], palette, previously_seen=df1.y.unique())
     axs[1].set_title('After Simulation')
 
     plt.suptitle(f'TSNE')
