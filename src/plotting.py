@@ -12,6 +12,7 @@ import pandas as pd
 def plot_measurements(dfs, parameters_df):
     fig, ax = plt.subplots(4, 3, figsize=(15, 15))
     fig.tight_layout(pad=5.0)
+    colors = plt.get_cmap('tab10')
 
     # plot rec_similarity with timesteps on x axis
     legend_lines, legend_names = [], []
@@ -22,30 +23,30 @@ def plot_measurements(dfs, parameters_df):
              name += f" (Lambda: {parameters_df.loc[i, 'Lambda']})" 
         legend_names.append(name)
         
-        line, = ax[0,0].plot(ts, df['mse'], label=name)
+        line, = ax[0,0].plot(ts, df['mse'], label=name, alpha=0.5, color=colors(i))
         # ax[0,1].plot(ts, df['user_mse'], label=name)
-        ax[0,2].plot(ts, df['recall_at_k'], label=name)
+        ax[0,2].plot(ts, df['recall_at_k'], label=name, alpha=0.5, color=colors(i))
     
         if 'interaction_spread' in df.columns:
-            ax[1,0].plot(ts, df['interaction_spread'], label=name, alpha=0.5)
+            ax[1,0].plot(ts, df['interaction_spread'], label=name, alpha=0.5, color=colors(i))
         if 'inter_cluster_interaction_similarity' in df.columns:
-            ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name, alpha=0.5)
+            ax[1,1].plot(ts, df['inter_cluster_interaction_similarity'], label=name, alpha=0.5, color=colors(i))
         if 'intra_cluster_interaction_similarity' in df.columns:
-            ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name, alpha=0.5)
+            ax[1,2].plot(ts, df['intra_cluster_interaction_similarity'], label=name, alpha=0.5, color=colors(i))
 
         if 'diversity_metric' in df.columns:
-            ax[2,0].plot(ts, df['diversity_metric'], label=name, alpha=0.5)
+            ax[2,0].plot(ts, df['diversity_metric'], label=name, alpha=0.5, color=colors(i))
         if 'inter_cluster_rec_similarity' in df.columns:
-            ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name, alpha=0.5)
+            ax[2,1].plot(ts, df['inter_cluster_rec_similarity'], label=name, alpha=0.5, color=colors(i))
         if 'intra_cluster_rec_similarity' in df.columns:
-            ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name, alpha=0.5)
+            ax[2,2].plot(ts, df['intra_cluster_rec_similarity'], label=name, alpha=0.5, color=colors(i))
 
         if 'serendipity_metric' in df.columns:
-            ax[3,0].plot(ts, df['serendipity_metric'], label=name, alpha=0.5)
+            ax[3,0].plot(ts, df['serendipity_metric'], label=name, alpha=0.5, color=colors(i))
         if 'novelty_metric' in df.columns:
-            ax[3,1].plot(ts, df['novelty_metric'], label=name, alpha=0.5)
+            ax[3,1].plot(ts, df['novelty_metric'], label=name, alpha=0.5, color=colors(i))
         if 'mean_num_topics' in df.columns:
-            ax[3,2].plot(ts, df['mean_num_topics'], label=name, alpha=0.5)
+            ax[3,2].plot(ts, df['mean_num_topics'], label=name, alpha=0.5, color=colors(i))
         
         legend_lines.append(line)
 
@@ -90,7 +91,7 @@ def plot_measurements(dfs, parameters_df):
     ax[3, 2].set_title('Mean Number of Topics Interacted per User')
     ax[3, 2].set_ylabel('Mean Number of Topics Interacted per User')
     
-    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=14, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.05))
+    fig.legend(legend_lines, legend_names, loc='upper center', fontsize=10, frameon=False, ncol=5, bbox_to_anchor=(.5, 1.0))
 
 
 def apply_tsne_2d(x, y, perplexity=50):
