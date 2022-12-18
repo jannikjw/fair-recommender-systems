@@ -49,7 +49,7 @@ def create_folder_structure():
 
 def main():
     create_folder_structure()
-
+    
     # Initialize parser
     parser = argparse.ArgumentParser()
 
@@ -63,10 +63,13 @@ def main():
     parser.add_argument("-l", "--Lambda", help = "Weight of regularizer in score function", type=float, default=0.1)
     parser.add_argument("-ud", "--UserDrift", help = "Factor of drift in user preferences. Values in [0,1].", type=float, default=0.05)
     parser.add_argument("-ua", "--UserAttention", help = "Factor of attention to ranking of iems. Values [-1, 0].", type=float, default=-0.8)
+    parser.add_argument("-n", "--Name", help = "Name of experiment. Requires folder in artefacts.", type=str, default='general')
+
     
     # Read arguments from command line
     args = parser.parse_args()
 
+    experiment_name = args.Name
     n_attrs = args.Attributes
     n_clusters = args.Clusters
     train_timesteps = args.TrainTimesteps
@@ -110,6 +113,7 @@ def main():
         model_name += '_prob'
         
     # Print model configuration
+    print('Experiment name: ', experiment_name)
     print("-------------------------Model Parameters-------------------------")
     print("Model name: ", model_name)
     print("Number of Iterations for NMF: ", max_iter)
@@ -143,7 +147,6 @@ def main():
     config['item_topics'] = item_cluster_ids
 
     user_item_cluster_mapping = user_topic_mapping(user_representation, item_cluster_centers) # TODO: Remove?
-    experiment_name = 'users_by_topic'
     # Create user_pairs by pairing users only with others that are not in the same cluster
     inter_cluster_user_pairs, intra_cluster_user_pairs = create_cluster_user_pairs(user_item_cluster_mapping)
 
@@ -177,16 +180,16 @@ def main():
         parameters += f'_{alpha}Lambda'
     
     # Save actual user preferences
-    final_preferences_dir = 'artefacts/final_preferences/'
-    file_prefix = f'{model_name}_{experiment_name}_final_preferences'
+    final_preferences_dir = f'artefacts/{experiment_name}/final_preferences/'
+    file_prefix = f'{model_name}_final_preferences'
     final_preferences_path = final_preferences_dir + file_prefix + parameters + '.npy'
     np.save(final_preferences_path, model.users.actual_user_profiles.value, allow_pickle=True)
     print('User preferences saved.')
 
     
     # Save measurements
-    measurements_dir = f'artefacts/measurements/'
-    file_prefix = f'{model_name}_{experiment_name}_measurements'
+    measurements_dir = f'artefacts/{experiment_name}/measurements/'
+    file_prefix = f'{model_name}_measurements'
         
     measurements_path = measurements_dir + file_prefix + parameters + '.csv'
     measurements_df = load_or_create_measurements_df(model, model_name, train_timesteps, measurements_path)

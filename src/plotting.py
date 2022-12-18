@@ -25,7 +25,7 @@ def plot_measurements(dfs, parameters_df):
         
         line, = ax[0,0].plot(ts, df['mse'], label=name, alpha=0.5, color=colors(i))
         # ax[0,1].plot(ts, df['user_mse'], label=name)
-        ax[0,2].plot(ts, df['recall_at_k'], label=name, alpha=0.5, color=colors(i))
+        ax[0,1].plot(ts, df['recall_at_k'], label=name, alpha=0.5, color=colors(i))
     
         if 'interaction_spread' in df.columns:
             ax[1,0].plot(ts, df['interaction_spread'], label=name, alpha=0.5, color=colors(i))
@@ -57,12 +57,12 @@ def plot_measurements(dfs, parameters_df):
     ax[0, 0].set_title('Mean Squared Error')
     ax[0, 0].set_ylabel('MSE')
 
-    ax[0, 1].set_title('User Mean Squared Error')
-    ax[0, 1].set_ylabel('MSE')
-    ax[0, 1].set_xlabel('User ID')
+    ax[0, 1].set_title('Top-5 Recall')
+    ax[0, 1].set_ylabel('Recall')
+    ax[0, 1].set_xlabel('Timesteps')
 
-    ax[0, 2].set_title('Recall')
-    ax[0, 2].set_ylabel('Recall')
+    ax[0, 2].set_title('')
+    ax[0, 2].set_ylabel('')
 
     ax[1, 0].set_title('Interaction Spread')
     ax[1, 0].set_ylabel('Jaccard Similarity')
@@ -94,10 +94,10 @@ def plot_measurements(dfs, parameters_df):
     fig.legend(legend_lines,
                legend_names,
                loc='upper center',
-               fontsize=14,
+               fontsize=12,
                frameon=False,
                ncol=5,
-               bbox_to_anchor=(.5, 1.05))
+               bbox_to_anchor=(.5, 1.02))
 
 
 def apply_tsne_2d(x, y, perplexity=50):
