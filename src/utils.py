@@ -204,11 +204,16 @@ def analyze_user_mse(df_user_mse, train_timesteps=0):
         The number of train_timesteps that are present in the dataframe. 
         If train_timesteps != 0, then the columns 0:train_timesteps will be excluded from the calculations.
     """
-    
+    timesteps = np.arange(df_user_mse.shape[1] - train_timesteps)
+    print(timesteps[0::10])
     cluster_mse = df_user_mse.iloc[:, train_timesteps:].groupby(['clusterID']).mean()
     worst_user_cluster = cluster_mse.mean(axis=1).idxmax()
     
     plt.plot(cluster_mse.mean(), label = "average MSE")
     plt.plot(cluster_mse.loc[worst_user_cluster], label = f"cluster {worst_user_cluster} MSE")
+    plt.title('Avg. MSE vs. Worst-User Cluster MSE')
+    plt.xlabel("Timestep")
+    plt.ylabel("MSE")
+    plt.xticks(timesteps[0::10])
     plt.legend()
     

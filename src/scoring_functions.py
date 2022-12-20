@@ -2,16 +2,20 @@ import trecs.matrix_ops as mo
 import scipy.spatial as sp
 import numpy as np
 from numpy.linalg import norm
+from scipy import stats
 import src.globals as globals
 
 from numpy.random import RandomState
+
 rs = RandomState(42)
+
 
 def cosine_sim(predicted_user_profiles, predicted_item_attributes):
     # Reranking
     alpha = globals.ALPHA
-    
-    predicted_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
+
+    predicted_scores = mo.inner_product(predicted_user_profiles,
+                                        predicted_item_attributes)
     user_norms = norm(predicted_user_profiles, axis=1)
     item_norms = norm(predicted_item_attributes, axis=0)
 
@@ -33,12 +37,28 @@ def cosine_sim(predicted_user_profiles, predicted_item_attributes):
 def entropy(predicted_user_profiles, predicted_item_attributes):
     # Reranking
     alpha = globals.ALPHA
+
+    predicted_scores = mo.inner_product(predicted_user_profiles,
+                                        predicted_item_attributes)
+    if np.sum(predicted_scores) == 0:
+        return predicted_scores
+
+    predicted_probs = predicted_scores / np.sum(predicted_scores,
+                                                 axis=1)[:, np.newaxis]
     
-    predicted_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
-    entropy = - predicted_scores * np.log(predicted_scores + globals.EPS)
-    re_ranked_scores = predicted_scores + alpha * entropy
+    # entropy = -np.sum(predicted_probs * np.log(predicted_probs + globals.EPS), axis=1)[:, np.newaxis]
+    # re_ranked_scores = predicted_scores + alpha * entropy
+
+    entropy_deltas = np.zeros_like(predicted_probs)
+    set_entropy = stats.entropy(predicted_probs, axis=1)
+    for i in range(predicted_probs.shape[1]):
+        entropy_deltas[:, i] = np.max(set_entropy - stats.entropy(np.delete(predicted_probs, i, axis=1), axis=1), 0)
     
+    re_ranked_scores = predicted_scores + alpha * entropy_deltas
+    
+    assert (entropy_deltas >= 0).all(), "Some entropy values are negative."
     assert (re_ranked_scores >= 0).all(), "Some scores are negative."
+    
     return re_ranked_scores
 
 
@@ -70,45 +90,12 @@ def content_fairness(predicted_user_profiles, predicted_item_attributes):
     upper_bound = 0.75
 
     # 1. Calculate myopic scores
-    predicted_scores =  mo.inner_product(predicted_user_profiles, predicted_item_attributes)
+    predicted_scores = mo.inner_product(predicted_user_profiles,
+                                        predicted_item_attributes)
 
-    # # 2. Calculate probabilities and sort them
-    # if np.sum(predicted_scores) == 0:
-    #     return predicted_scores
-    # probs = (predicted_scores.T / np.sum(predicted_scores, axis=1)).T
-    # probs_sorted = np.flip(np.argsort(probs, axis=1), axis=1)
-    
-    # # 3. Determine weight per embedding dimension for each item (scaled to [0,1])
-    # gw = predicted_item_attributes.T / np.sum(predicted_item_attributes.T, axis=1)[:, np.newaxis]
-
-    # num_user = len(predicted_user_profiles)
-    # recs = np.empty((num_user, slate_size), dtype=int)
-    
-    # for user in range(len(probs_sorted)):
-    #     agg_weight_per_cluster = np.zeros((len(gw[0]))) # matrix to keep track of weights of slate 
-        
-    #     i = 0
-    #     # 4. Create slate in order of myopic scores
-    #     for item in probs_sorted[user]:
-    #         weight_item = gw[item]
-    #         # print(f'{item}: {weight_item}')
-            
-    #         # 5. Calculate weights if item was added to slate. If exceeds upper_bound go to next item.
-    #         proposed_weights = weight_item + agg_weight_per_cluster
-    #         if (proposed_weights <= upper_bound).all() and i < slate_size:
-    #             agg_weight_per_cluster = proposed_weights
-    #             recs[user, i] = item
-    #             i += 1
-
-    # # 6. Manually assign new scores to items in slate
-    # predicted_scores_reranked = np.copy(predicted_scores)
-    # for i, user in enumerate(recs):
-    #     for item in np.flip(user):
-    #         predicted_scores_reranked[int(i), int(item)] = np.max(predicted_scores_reranked[int(i)]) + 1
-
-    # return predicted_scores_reranked
 
     return predicted_scores
+
 
 def top_k_reranking(predicted_user_profiles, predicted_item_attributes):
     """
@@ -124,14 +111,20 @@ def top_k_reranking(predicted_user_profiles, predicted_item_attributes):
     """
     k = 10
 
-    pred_scores = mo.inner_product(predicted_user_profiles, predicted_item_attributes)
+    pred_scores = mo.inner_product(predicted_user_profiles,
+                                   predicted_item_attributes)
     top_k_idxs = mo.top_k_indices(matrix=pred_scores, k=k, random_state=rs)
 
-    top_k_re_ranked_idxs = top_k_idxs[:,-1::-1]
-    top_k_re_ranked_scores = np.take_along_axis(pred_scores, top_k_idxs, axis=1)
+    top_k_re_ranked_idxs = top_k_idxs[:, -1::-1]
+    top_k_re_ranked_scores = np.take_along_axis(pred_scores,
+                                                top_k_idxs,
+                                                axis=1)
     top_k_re_ranked_scores = top_k_re_ranked_scores[:, -1::-1]
 
     re_ranked_scores = np.copy(pred_scores)
-    np.put_along_axis(re_ranked_scores, top_k_idxs, top_k_re_ranked_scores, axis=1)
-    
+    np.put_along_axis(re_ranked_scores,
+                      top_k_idxs,
+                      top_k_re_ranked_scores,
+                      axis=1)
+
     return re_ranked_scores

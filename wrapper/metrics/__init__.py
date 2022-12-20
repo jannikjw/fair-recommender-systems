@@ -7,3 +7,8 @@ from .evaluation_metrics import (
     MeanNumberOfTopics,
     UserMSEMeasurement,
 )
+
+from .cheney_metrics import (
+    MeanInteractionDistance, 
+    MeanDistanceSimUsers,
+)

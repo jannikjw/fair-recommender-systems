@@ -9,6 +9,7 @@ import trecs.matrix_ops as mo
 import numpy as np
 from numpy.linalg import norm
 import scipy.sparse as sp
+sys.path.insert(1, '../')
 from src.scoring_functions import content_fairness
 from pulp import *
 
