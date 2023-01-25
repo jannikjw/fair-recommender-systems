@@ -1,15 +1,9 @@
-import sys
-# caution: path[0] is reserved for script path (or '' in REPL)
-sys.path.insert(1, '../t-recs/')
-import trecs.matrix_ops as mo
-
 from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF
 import numpy as np
 import pandas as pd
 import os
 import pickle
-import trecs.matrix_ops as mo
 import matplotlib.pyplot as plt
 import src.globals as globals
 from warnings import simplefilter
@@ -46,7 +40,6 @@ def get_clusters(embeddings, name, n_clusters:int=25, n_attrs:int=20, max_iter:i
     cluster_ids = kmeans.predict(embeddings)
     centroids = kmeans.cluster_centers_
     return cluster_ids, centroids
-
 
 
 def create_embeddings(binary_matrix, n_attrs:int=100, max_iter:int=100):
