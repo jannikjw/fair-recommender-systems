@@ -1,6 +1,8 @@
 # Custom Folders
 data/
+artefacts/
 .vscode/
+.DS_Store
 
 
 # Byte-compiled / optimized / DLL files
